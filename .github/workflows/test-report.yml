@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -172,7 +172,7 @@ jobs:
         if: success()
         uses: actions/configure-pages@v4
         
-      - name: Upload artifact
+      - name: Upload Pages artifact
         if: success()
         uses: actions/upload-pages-artifact@v3
         with:
@@ -181,4 +181,9 @@ jobs:
       - name: Deploy to GitHub Pages
         if: success()
         id: deployment
-        uses: actions/deploy-pages@v4 
+        uses: actions/deploy-pages@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: allure-report
+          clean: true 
