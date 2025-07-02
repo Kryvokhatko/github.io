@@ -139,7 +139,16 @@ jobs:
           
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
-              vstest.console.exe $dll.FullName /Logger:"trx;LogFileName=$pwd\TestResults.trx" /TestAdapterPath:packages
+              vstest.console.exe $dll.FullName /TestAdapterPath:packages /Logger:"trx;LogFileName=$pwd\TestResults.trx" /Settings:"$pwd\.runsettings"
+          }
+
+          Write-Host "Contents of allure-results directory:"
+          Get-ChildItem "allure-results" -Recurse | ForEach-Object {
+              Write-Host $_.FullName
+              if ($_.Extension -eq ".json") {
+                  Write-Host "Content of $($_.Name):"
+                  Get-Content $_.FullName
+              }
           }
         
       - name: Upload Test Results
