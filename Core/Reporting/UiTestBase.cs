@@ -43,7 +43,7 @@ namespace CSTestFramework.Core.Reporting
             }
 
             var environmentInfo = AllureManager.BuildEnvironmentInfo(_webDriver);
-            // AllureManager.AddEnvironmentInfo(environmentInfo); // Removed: only write once in global setup
+            AllureManager.AddEnvironmentInfo(environmentInfo); // Important for Allure reporting
 
             AllureStepHelper.ExecuteStep(
                 "Browser/Environment Setup",

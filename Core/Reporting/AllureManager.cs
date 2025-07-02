@@ -7,6 +7,8 @@ using CSTestFramework.Core.Logging.Interfaces;
 using CSTestFramework.Core.Configuration.Interfaces;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
+using Allure.Net.Commons;
+using CSTestFramework.Core.Configuration.Models;
 
 namespace CSTestFramework.Core.Reporting
 {
@@ -18,6 +20,7 @@ namespace CSTestFramework.Core.Reporting
         private static bool _isInitialized;
         private static ILogger _logger;
         private static ILoggingConfiguration _loggingConfig;
+        private static string _resultsDirectory;
 
         /// <summary>
         /// Initializes Allure reporting with the specified configuration.
@@ -36,21 +39,21 @@ namespace CSTestFramework.Core.Reporting
 
             try
             {
-                // Set Allure results directory
-                var resultsDirectory = Path.Combine(Directory.GetCurrentDirectory(), "allure-results");
-                Environment.SetEnvironmentVariable("ALLURE_RESULTS_DIR", resultsDirectory);
-
-                // Ensure results directory exists
-                Directory.CreateDirectory(resultsDirectory);
-
-                // Set Allure configuration file path
-                var configPath = Path.Combine(Directory.GetCurrentDirectory(), "allureConfig.json");
-                if (File.Exists(configPath))
+                // Get the absolute path for Allure results
+                var workingDirectory = Environment.CurrentDirectory;
+                _resultsDirectory = Path.GetFullPath(Path.Combine(workingDirectory, "allure-results"));
+                
+                // Ensure directory exists and is empty
+                if (Directory.Exists(_resultsDirectory))
                 {
-                    Environment.SetEnvironmentVariable("ALLURE_CONFIG", configPath);
+                    Directory.Delete(_resultsDirectory, true);
                 }
+                Directory.CreateDirectory(_resultsDirectory);
 
-                _logger.Debug("Allure reporting initialized. Results directory: {ResultsDir}", resultsDirectory);
+                // Configure Allure
+                Environment.SetEnvironmentVariable("ALLURE_RESULTS_DIRECTORY", _resultsDirectory);
+                
+                _logger.Debug("Allure initialized with results directory: {Directory}", _resultsDirectory);
                 _isInitialized = true;
             }
             catch (Exception ex)
@@ -78,7 +81,7 @@ namespace CSTestFramework.Core.Reporting
         /// Adds environment information to the Allure report.
         /// </summary>
         /// <param name="environmentInfo">The environment information to add.</param>
-        public static void AddEnvironmentInfo(EnvironmentInfo environmentInfo)
+        public static void AddEnvironmentInfo(AllureEnvironmentInfo info)
         {
             if (!_isInitialized)
             {
@@ -87,27 +90,20 @@ namespace CSTestFramework.Core.Reporting
 
             try
             {
-                var resultsDir = Environment.GetEnvironmentVariable("ALLURE_RESULTS_DIR");
-                var environmentFile = Path.Combine(resultsDir, "environment.properties");
+                var envFilePath = Path.Combine(_resultsDirectory, "environment.properties");
+                var envContent = $@"Operating.System={info.OperatingSystem}
+Browser={info.Browser ?? "Unknown"}
+Browser.Version={info.BrowserVersion ?? "Unknown"}
+Base.URL={info.BaseUrl}
+Framework={info.Framework}
+Language={info.Language}";
 
-                var environmentData = new[]
-                {
-                    $"Browser={environmentInfo.Browser}",
-                    $"BrowserVersion={environmentInfo.BrowserVersion}",
-                    $"OS={environmentInfo.OperatingSystem}",
-                    $"OSVersion={environmentInfo.OSVersion}",
-                    $"Framework={environmentInfo.Framework}",
-                    $"FrameworkVersion={environmentInfo.FrameworkVersion}",
-                    $"TestEnvironment={environmentInfo.TestEnvironment}",
-                    $"BaseUrl={environmentInfo.BaseUrl}"
-                };
-
-                File.WriteAllLines(environmentFile, environmentData);
-                _logger.Debug("Environment information added to Allure report");
+                File.WriteAllText(envFilePath, envContent);
+                _logger.Debug("Environment info written to: {FilePath}", envFilePath);
             }
             catch (Exception ex)
             {
-                _logger.Debug(ex, "Failed to add environment information to Allure report");
+                _logger.Debug(ex, "Failed to write environment info");
             }
         }
 
@@ -124,18 +120,7 @@ namespace CSTestFramework.Core.Reporting
 
             try
             {
-                var resultsDir = Environment.GetEnvironmentVariable("ALLURE_RESULTS_DIR");
-                if (string.IsNullOrEmpty(outputDirectory))
-                {
-                    outputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "allure-report");
-                }
-
-                // Note: In a real implementation, you would call the Allure command-line tool
-                // For now, we'll just log that the report generation is requested
-                _logger.Debug("Allure report generation requested. Results: {ResultsDir}, Output: {OutputDir}", 
-                    resultsDir, outputDirectory);
-
-                // In CI/CD, you would typically run: allure generate allure-results --clean -o allure-report
+                _logger.Debug("Allure results available at: {Directory}", _resultsDirectory);
             }
             catch (Exception ex)
             {
@@ -155,44 +140,37 @@ namespace CSTestFramework.Core.Reporting
             }
         }
 
-        public static EnvironmentInfo BuildEnvironmentInfo(IWebDriver driver = null)
+        public static AllureEnvironmentInfo BuildEnvironmentInfo(IWebDriver driver = null)
         {
-            string browser = "Unknown";
-            string browserVersion = "Unknown";
-            if (driver is RemoteWebDriver remoteDriver)
+            var info = new AllureEnvironmentInfo
             {
-                browser = remoteDriver.Capabilities.GetCapability("browserName")?.ToString() ?? "Unknown";
-                browserVersion = remoteDriver.Capabilities.GetCapability("browserVersion")?.ToString()
-                    ?? remoteDriver.Capabilities.GetCapability("version")?.ToString()
-                    ?? "Unknown";
-            }
-            var config = CSTestFramework.Core.Configuration.ConfigurationManager.Instance.AppSettings;
-            return new EnvironmentInfo
-            {
-                Browser = browser,
-                BrowserVersion = browserVersion,
-                OperatingSystem = Environment.OSVersion.Platform.ToString(),
-                OSVersion = Environment.OSVersion.VersionString,
-                Framework = "NUnit",
-                FrameworkVersion = typeof(NUnit.Framework.TestFixtureAttribute).Assembly.GetName().Version?.ToString() ?? "Unknown",
-                TestEnvironment = config.Environment.EnvironmentName,
-                BaseUrl = config.Ui?.ApplicationUrl ?? config.Api?.ApiUrl
+                OperatingSystem = Environment.OSVersion.ToString(),
+                Framework = "CSTestFramework",
+                Language = "C#",
+                BaseUrl = Configuration.ConfigurationManager.Instance.AppSettings.Ui.ApplicationUrl
             };
+
+            if (driver != null && driver is OpenQA.Selenium.Remote.RemoteWebDriver remoteDriver)
+            {
+                info.Browser = remoteDriver.Capabilities.GetCapability("browserName")?.ToString();
+                info.BrowserVersion = remoteDriver.Capabilities.GetCapability("browserVersion")?.ToString() 
+                    ?? remoteDriver.Capabilities.GetCapability("version")?.ToString();
+            }
+
+            return info;
         }
     }
 
     /// <summary>
     /// Represents environment information for Allure reports.
     /// </summary>
-    public class EnvironmentInfo
+    public class AllureEnvironmentInfo
     {
-        public string Browser { get; set; } = "Unknown";
-        public string BrowserVersion { get; set; } = "Unknown";
-        public string OperatingSystem { get; set; } = Environment.OSVersion.Platform.ToString();
-        public string OSVersion { get; set; } = Environment.OSVersion.VersionString;
-        public string Framework { get; set; } = "NUnit";
-        public string FrameworkVersion { get; set; } = typeof(TestFixtureAttribute).Assembly.GetName().Version?.ToString() ?? "Unknown";
-        public string TestEnvironment { get; set; } = "Development";
-        public string BaseUrl { get; set; } = "http://localhost";
+        public string OperatingSystem { get; set; }
+        public string Browser { get; set; }
+        public string BrowserVersion { get; set; }
+        public string BaseUrl { get; set; }
+        public string Framework { get; set; }
+        public string Language { get; set; }
     }
 } 

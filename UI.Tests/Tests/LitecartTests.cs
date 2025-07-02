@@ -2,6 +2,7 @@ using NUnit.Framework;
 using CSTestFramework.Core.Reporting;
 using CSTestFramework.UI.PageObjects;
 using Allure.NUnit.Attributes;
+using Allure.Net.Commons;
 
 namespace CSTestFramework.UI.Tests
 {
@@ -10,9 +11,12 @@ namespace CSTestFramework.UI.Tests
     [AllureFeature("Order Placement")]
     public class LitecartTests : UiTestBase
     {
-        [Test(Description = "Automates the process of placing an order for a Red Duck item.")]
+        [Test]
         [AllureStory("Successful Order")]
+        [AllureSeverity(Allure.Net.Commons.SeverityLevel.normal)]
         [AllureTag("Smoke", "E2E")]
+        [AllureOwner("QA Team")]
+        [Description("Automates the process of placing an order for a Red Duck item.")]
         public void PlaceOrderForRedDuck_Success()
         {
             var homePage = new HomePage(WebDriver, Logger);

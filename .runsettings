@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <TestAdaptersPaths>packages</TestAdaptersPaths>
+  </RunConfiguration>
+  <NUnit>
+    <TestOutputXml>allure-results</TestOutputXml>
+  </NUnit>
+</RunSettings> 
