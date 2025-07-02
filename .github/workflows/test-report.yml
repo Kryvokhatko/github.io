@@ -18,10 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '4.8.x'
+      - name: Setup .NET Framework
+        run: |
+          choco install dotnet-framework-4.8-devpack -y
+          choco install dotnet-framework-4.8 -y
           
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1.3.1
