@@ -30,7 +30,7 @@ jobs:
           # Download Chrome for Testing
           Write-Host "Downloading Chrome for Testing..."
           $ChromeZip = "$env:TEMP\chrome-win64.zip"
-          $ChromeUrl = "https://storage.googleapis.com/chrome-for-testing-public/$StableVersion/win64/chrome-win64.zip"
+          $ChromeUrl = "	https://storage.googleapis.com/chrome-for-testing-public/138.0.7204.92/win64/chrome-win64.zip"
           Invoke-WebRequest -Uri $ChromeUrl -OutFile $ChromeZip
           
           # Extract Chrome
@@ -46,7 +46,7 @@ jobs:
           # Download matching ChromeDriver
           Write-Host "Downloading ChromeDriver..."
           $DriverZip = "$env:TEMP\chromedriver-win64.zip"
-          $DriverUrl = "https://storage.googleapis.com/chrome-for-testing-public/$StableVersion/win64/chromedriver-win64.zip"
+          $DriverUrl = "https://storage.googleapis.com/chrome-for-testing-public/138.0.7204.92/win64/chromedriver-win64.zip"
           Invoke-WebRequest -Uri $DriverUrl -OutFile $DriverZip
           
           # Extract ChromeDriver
