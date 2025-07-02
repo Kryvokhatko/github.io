@@ -12,6 +12,11 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  CHROME_VERSION: "138.0.7204.92"
+  CI_CHROME_PATH: "C:\\chrome-win64\\chrome.exe"
+  CI_CHROMEDRIVER_PATH: "C:\\ChromeDriver"
+
 jobs:
   test:
     runs-on: windows-latest
@@ -21,53 +26,37 @@ jobs:
       - name: Setup Chrome and ChromeDriver
         shell: pwsh
         run: |
-          # Get latest Chrome for Testing version
-          Write-Host "Getting latest Chrome for Testing version..."
-          $VersionsJson = Invoke-RestMethod "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json"
-          $StableVersion = $VersionsJson.channels.Stable.version
-          Write-Host "Latest stable Chrome version: $StableVersion"
+          Write-Host "Installing Chrome and ChromeDriver version $env:CHROME_VERSION"
           
-          # Download Chrome for Testing
-          Write-Host "Downloading Chrome for Testing..."
+          # Download Chrome
           $ChromeZip = "$env:TEMP\chrome-win64.zip"
-          $ChromeUrl = "	https://storage.googleapis.com/chrome-for-testing-public/138.0.7204.92/win64/chrome-win64.zip"
+          $ChromeUrl = "https://storage.googleapis.com/chrome-for-testing-public/$env:CHROME_VERSION/win64/chrome-win64.zip"
           Invoke-WebRequest -Uri $ChromeUrl -OutFile $ChromeZip
           
           # Extract Chrome
-          $ChromePath = "C:\chrome-win64"
-          Write-Host "Extracting Chrome to $ChromePath..."
+          Write-Host "Extracting Chrome..."
           Expand-Archive $ChromeZip -DestinationPath "C:\" -Force
           Remove-Item $ChromeZip
           
-          # Add Chrome to PATH
-          $env:PATH = "$ChromePath;" + $env:PATH
-          [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
-          
-          # Download matching ChromeDriver
-          Write-Host "Downloading ChromeDriver..."
+          # Download ChromeDriver
           $DriverZip = "$env:TEMP\chromedriver-win64.zip"
-          $DriverUrl = "https://storage.googleapis.com/chrome-for-testing-public/138.0.7204.92/win64/chromedriver-win64.zip"
+          $DriverUrl = "https://storage.googleapis.com/chrome-for-testing-public/$env:CHROME_VERSION/win64/chromedriver-win64.zip"
           Invoke-WebRequest -Uri $DriverUrl -OutFile $DriverZip
           
           # Extract ChromeDriver
-          $ChromeDriverPath = "C:\ChromeDriver"
-          Write-Host "Extracting ChromeDriver to $ChromeDriverPath..."
-          New-Item -ItemType Directory -Force -Path $ChromeDriverPath
+          Write-Host "Extracting ChromeDriver..."
+          New-Item -ItemType Directory -Force -Path $env:CI_CHROMEDRIVER_PATH
           Expand-Archive $DriverZip -DestinationPath "C:\" -Force
-          Copy-Item "C:\chromedriver-win64\chromedriver.exe" $ChromeDriverPath -Force
+          Copy-Item "C:\chromedriver-win64\chromedriver.exe" $env:CI_CHROMEDRIVER_PATH -Force
           Remove-Item $DriverZip
           Remove-Item "C:\chromedriver-win64" -Recurse -Force
           
-          # Add ChromeDriver to PATH
-          $env:PATH = "$ChromeDriverPath;" + $env:PATH
-          [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
-          
-          Write-Host "Chrome and ChromeDriver installation completed"
+          # Verify installation
           Write-Host "Chrome version:"
-          & "$ChromePath\chrome.exe" --version
+          & $env:CI_CHROME_PATH --version
           Write-Host "ChromeDriver version:"
-          & "$ChromeDriverPath\chromedriver.exe" --version
-          
+          & "$env:CI_CHROMEDRIVER_PATH\chromedriver.exe" --version
+      
       - name: Setup .NET Framework
         shell: pwsh
         run: |
