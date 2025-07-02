@@ -13,9 +13,12 @@ namespace API.Tests.Tests
     [AllureFeature("For presentation purposes only")]
     public class EmptyAPITests
     {
-        [Test(Description = "Do nothing.")]
-        [AllureStory("Successful API test")]
-        [AllureTag("Smoke")]
+        [Test]
+        [AllureStory("Successful Order")]
+        [AllureSeverity(Allure.Net.Commons.SeverityLevel.normal)]
+        [AllureTag("Smoke", "API")]
+        [AllureOwner("QA Team")]
+        [Description("Empty test for API presentation.")]
 
         public void EmpryTest()
         { 
