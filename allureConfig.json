@@ -1,0 +1,61 @@
+{
+  "allure": {
+    "directory": "allure-results",
+    "links": [
+      {
+        "type": "issue",
+        "urlTemplate": "https://example.com/issues/{}"
+      },
+      {
+        "type": "tms",
+        "urlTemplate": "https://example.com/test-cases/{}"
+      }
+    ],
+    "categories": [
+      {
+        "name": "Failed tests",
+        "matchedStatuses": ["failed"]
+      },
+      {
+        "name": "Broken tests",
+        "matchedStatuses": ["broken"]
+      },
+      {
+        "name": "Ignored tests",
+        "matchedStatuses": ["skipped"]
+      },
+      {
+        "name": "Unknown tests",
+        "matchedStatuses": ["unknown"]
+      }
+    ],
+    "executors": [
+      {
+        "name": "CSTestFramework",
+        "type": "nunit",
+        "url": "https://github.com/your-org/CSTestFramework",
+        "buildOrder": 1,
+        "buildName": "CSTestFramework Build",
+        "buildUrl": "https://ci.example.com/builds/123",
+        "reportUrl": "https://reports.example.com/allure/123",
+        "reportName": "CSTestFramework Allure Report"
+      }
+    ],
+    "environment": {
+      "Browser": "Chrome",
+      "Browser.Version": "120.0",
+      "Stand": "Production",
+      "OS": "Windows",
+      "OS.Version": "10.0.19045"
+    },
+    "attachments": {
+      "maxSize": 10485760
+    },
+    "report": {
+      "title": "CSTestFramework Test Report",
+      "description": "Comprehensive test automation framework report",
+      "logo": "https://example.com/logo.png",
+      "theme": "default"
+    }
+  }
+} 

@@ -1,0 +1,65 @@
+name: Test and Publish Report
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '4.8.x'
+          
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+          
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.2.0
+        
+      - name: Restore NuGet packages
+        run: nuget restore CSTestFramework.sln
+        
+      - name: Build Solution
+        run: msbuild CSTestFramework.sln /p:Configuration=Debug
+        
+      - name: Install Allure CommandLine
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+          choco install allure -y
+        shell: pwsh
+        
+      - name: Run Tests
+        run: |
+          $env:ALLURE_RESULTS_DIRECTORY="allure-results"
+          dotnet test --logger "trx;LogFileName=TestResults.trx"
+        
+      - name: Generate Allure Report
+        run: |
+          allure generate allure-results -o allure-report --clean
+        shell: pwsh
+        
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+        
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: 'allure-report'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2 
