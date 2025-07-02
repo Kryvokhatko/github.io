@@ -44,6 +44,49 @@ jobs:
       - name: Setup VSTest
         uses: darenm/Setup-VSTest@v1
         
+      - name: Install Chrome and ChromeDriver
+        shell: pwsh
+        run: |
+          # Install latest Chrome
+          Write-Host "Installing latest Chrome..."
+          $ChromeInstallerPath = "$env:TEMP\chrome_installer.exe"
+          Invoke-WebRequest "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile $ChromeInstallerPath
+          Start-Process -FilePath $ChromeInstallerPath -Args "/silent /install" -Wait
+          Remove-Item $ChromeInstallerPath
+          
+          # Get installed Chrome version
+          $ChromePath = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe").'(Default)'
+          $ChromeVersion = (Get-Item $ChromePath).VersionInfo.FileVersion
+          Write-Host "Installed Chrome version: $ChromeVersion"
+          
+          # Download matching ChromeDriver
+          $ChromeMajorVersion = $ChromeVersion.Split('.')[0]
+          Write-Host "Chrome major version: $ChromeMajorVersion"
+          
+          # Create ChromeDriver directory
+          $ChromeDriverPath = "C:\ChromeDriver"
+          New-Item -ItemType Directory -Force -Path $ChromeDriverPath
+          
+          # Download latest driver for this major version
+          $DriverVersionResponse = Invoke-WebRequest "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$ChromeMajorVersion"
+          $DriverVersion = $DriverVersionResponse.Content
+          Write-Host "Downloading ChromeDriver version: $DriverVersion"
+          
+          $DriverZip = "$ChromeDriverPath\chromedriver.zip"
+          Invoke-WebRequest "https://chromedriver.storage.googleapis.com/$DriverVersion/chromedriver_win32.zip" -OutFile $DriverZip
+          
+          # Extract ChromeDriver
+          Expand-Archive $DriverZip -DestinationPath $ChromeDriverPath -Force
+          Remove-Item $DriverZip
+          
+          # Add to PATH
+          $env:PATH = "$ChromeDriverPath;$env:PATH"
+          [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
+          
+          Write-Host "ChromeDriver installation completed"
+          Write-Host "ChromeDriver version:"
+          & "$ChromeDriverPath\chromedriver.exe" --version
+        
       - name: Restore NuGet packages
         run: nuget restore CSTestFramework.sln
         
