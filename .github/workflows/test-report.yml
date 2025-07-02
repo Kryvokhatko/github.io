@@ -23,6 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1
+        
+      - name: Restore NuGet Packages
+        run: nuget restore CSTestFramework.sln
+
       - name: Setup Chrome and ChromeDriver
         shell: pwsh
         run: |
@@ -77,14 +83,8 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1.3.1
           
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1.2.0
-        
       - name: Setup VSTest
         uses: darenm/Setup-VSTest@v1
-        
-      - name: Restore NuGet packages
-        run: nuget restore CSTestFramework.sln
         
       - name: Build Solution
         run: |
@@ -137,9 +137,12 @@ jobs:
           Write-Host "Found test DLLs:"
           $testDlls | ForEach-Object { Write-Host $_.FullName }
           
+          $nunitPath = Resolve-Path "packages/NUnit.ConsoleRunner.*/tools/nunit3-console.exe"
+          Write-Host "NUnit Console path: $nunitPath"
+          
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
-              & "packages\NUnit.ConsoleRunner.3.16.3\tools\nunit3-console.exe" $dll.FullName `
+              & $nunitPath $dll.FullName `
                 --framework="net-4.8" `
                 --where="cat!=IgnoreOnCI" `
                 --labels=All `
