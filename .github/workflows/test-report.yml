@@ -139,7 +139,7 @@ jobs:
           
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
-              vstest.console.exe $dll.FullName /TestAdapterPath:packages /Logger:"trx;LogFileName=$pwd\TestResults.trx" /Settings:"$pwd\.runsettings"
+              vstest.console.exe $dll.FullName /TestAdapterPath:packages /Logger:"trx;LogFileName=$pwd\TestResults.trx"
           }
 
           Write-Host "Contents of allure-results directory:"
