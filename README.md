@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CSTestFramework
 
 A comprehensive C# test automation framework with Allure reporting integration.
@@ -59,3 +60,6 @@ allure open allure-report
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request 
+=======
+# github.io
+>>>>>>> 3e4db88e4a31999513f9a6b9b39c60ef0272107d
