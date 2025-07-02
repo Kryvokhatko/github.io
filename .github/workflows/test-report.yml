@@ -29,11 +29,15 @@ jobs:
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v1.2.0
         
+      - name: Setup VSTest
+        uses: darenm/Setup-VSTest@v1
+        
       - name: Restore NuGet packages
         run: nuget restore CSTestFramework.sln
         
       - name: Build Solution
-        run: msbuild CSTestFramework.sln /p:Configuration=Debug
+        run: |
+          msbuild CSTestFramework.sln /p:Configuration=Debug /p:Platform="Any CPU" /p:RestorePackages=true /verbosity:detailed
         
       - name: Install Allure CommandLine
         run: |
@@ -44,22 +48,49 @@ jobs:
         
       - name: Run Tests
         run: |
-          $env:ALLURE_RESULTS_DIRECTORY="allure-results"
-          dotnet test --logger "trx;LogFileName=TestResults.trx"
+          $env:ALLURE_RESULTS_DIRECTORY="$pwd\allure-results"
+          New-Item -ItemType Directory -Force -Path "allure-results"
+          
+          # Find all test DLLs
+          $testDlls = Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }
+          
+          foreach ($dll in $testDlls) {
+              Write-Host "Running tests in: $($dll.FullName)"
+              vstest.console.exe $dll.FullName /Logger:"trx;LogFileName=$pwd\TestResults.trx" /TestAdapterPath:packages
+          }
+        shell: pwsh
+        
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: TestResults.trx
         
       - name: Generate Allure Report
+        if: always()
         run: |
+          Write-Host "Current directory: $pwd"
+          Write-Host "Checking allure-results directory:"
+          Get-ChildItem "allure-results" -Recurse
+          
           allure generate allure-results -o allure-report --clean
+          
+          Write-Host "Checking generated report:"
+          Get-ChildItem "allure-report" -Recurse
         shell: pwsh
         
       - name: Setup Pages
+        if: success()
         uses: actions/configure-pages@v4
         
       - name: Upload artifact
+        if: success()
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'allure-report'
           
       - name: Deploy to GitHub Pages
+        if: success()
         id: deployment
         uses: actions/deploy-pages@v4 
