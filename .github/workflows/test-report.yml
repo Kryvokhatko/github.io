@@ -152,7 +152,17 @@ jobs:
           }
 
           # Convert NUnit results to TRX format using VSTest
-          vstest.console.exe @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=TestResults.trx"
+          $trxPath = Join-Path $pwd "TestResults.trx"
+          Write-Host "Generating TRX file at: $trxPath"
+          vstest.console.exe @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=$trxPath"
+
+          # Verify TRX file exists
+          if (Test-Path $trxPath) {
+              Write-Host "TRX file generated successfully at: $trxPath"
+              Get-Content $trxPath | Select-Object -First 5
+          } else {
+              Write-Host "Warning: TRX file was not generated at: $trxPath"
+          }
 
           Write-Host "Contents of allure-results directory:"
           Get-ChildItem "allure-results" -Recurse | ForEach-Object {
@@ -163,13 +173,22 @@ jobs:
               }
           }
         
-      - name: Upload Test Results
+      - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: TestResults.trx
-          
+          path: ${{ github.workspace }}/TestResults.trx
+          retention-days: 30
+
+      - name: Upload Allure results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results
+          path: allure-results/
+          retention-days: 30
+
       - name: Generate Allure Report
         if: always()
         shell: pwsh
