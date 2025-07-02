@@ -145,11 +145,14 @@ jobs:
               & $nunitPath $dll.FullName `
                 --framework="net-4.8" `
                 --where="cat!=IgnoreOnCI" `
-                --labels=All `
+                --labels=Before `
                 --trace=Debug `
-                --result="TestResults.trx;format=trx" `
-                --result="allure-results;format=nunit3"
+                --result="TestResults.xml;format=nunit3" `
+                --result="allure-results/allure-results.xml;format=nunit3"
           }
+
+          # Convert NUnit results to TRX format using VSTest
+          vstest.console.exe @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=TestResults.trx"
 
           Write-Host "Contents of allure-results directory:"
           Get-ChildItem "allure-results" -Recurse | ForEach-Object {
