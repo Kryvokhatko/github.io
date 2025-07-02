@@ -184,11 +184,26 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
       
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
       - name: Download Allure Report
         uses: actions/download-artifact@v4
         with:
           name: allure-report
           path: allure-report
+
+      - name: Create gh-pages Branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan gh-pages
+          git rm -rf .
+          cp -r allure-report/* .
+          rm -rf allure-report
+          git add .
+          git commit -m "Deploy Allure report to GitHub Pages"
+          git push origin gh-pages --force
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -196,7 +211,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: allure-report
+          path: .
           
       - name: Deploy to GitHub Pages
         id: deployment
