@@ -348,7 +348,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\CSTestFramework.Core.csproj">
-      <Project>{f3e283e7-5723-4ef2-8d81-003c663628ad}</Project>
+      <Project>{F3E283E7-5723-4EF2-8D81-003C663628AD}</Project>
       <Name>CSTestFramework.Core</Name>
     </ProjectReference>
   </ItemGroup>

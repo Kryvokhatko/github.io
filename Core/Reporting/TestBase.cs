@@ -212,7 +212,7 @@ namespace CSTestFramework.Core.Reporting
                 var screenshotPath = ScreenshotService?.TakeManualScreenshot(name, description);
                 if (!string.IsNullOrEmpty(screenshotPath))
                 {
-                    AllureAttachmentHelper.AddScreenshotFromFile(screenshotPath, name, description);
+                    AllureAttachmentHelper.AddScreenshotFromFile(screenshotPath, name);
                     Logger.Debug("Manual screenshot taken and attached to report: {Name}", name);
                 }
                 return screenshotPath;

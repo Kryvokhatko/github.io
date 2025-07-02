@@ -50,7 +50,7 @@ namespace CSTestFramework.Core.Reporting
                 () =>
                 {
                     Logger?.Debug("WebDriver initialized: {Browser} {Version} on {OS}", environmentInfo.Browser, environmentInfo.BrowserVersion, environmentInfo.OperatingSystem);
-                    AllureAttachmentHelper.AddJsonAttachment(environmentInfo, "Environment Info", "Per-test environment details");
+                    AllureAttachmentHelper.AddJsonAttachment(environmentInfo, "Environment Info");
                 },
                 $"WebDriver: {environmentInfo.Browser} {environmentInfo.BrowserVersion}, OS: {environmentInfo.OperatingSystem}, BaseUrl: {environmentInfo.BaseUrl}"
             );

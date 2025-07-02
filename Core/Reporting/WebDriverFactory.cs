@@ -6,6 +6,7 @@ using OpenQA.Selenium.Firefox;
 using OpenQA.Selenium.Edge;
 using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
+using WebDriverManager.Helpers;
 using CSTestFramework.Core.Configuration.Models;
 using CSTestFramework.Core.Logging;
 using CSTestFramework.Core.Logging.Interfaces;
@@ -73,8 +74,31 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         private static IWebDriver CreateChromeDriver(UiSettings settings)
         {
-            new DriverManager().SetUpDriver(new ChromeConfig());
             var options = new ChromeOptions();
+
+            // Check if running in CI environment
+            var ciChromePath = Environment.GetEnvironmentVariable("CI_CHROME_PATH");
+            var ciDriverPath = Environment.GetEnvironmentVariable("CI_CHROMEDRIVER_PATH");
+
+            if (!string.IsNullOrEmpty(ciChromePath) && !string.IsNullOrEmpty(ciDriverPath))
+            {
+                _logger.Debug("Running in CI environment. Using Chrome at: {ChromePath} and ChromeDriver at: {DriverPath}", 
+                    ciChromePath, ciDriverPath);
+                
+                if (File.Exists(ciChromePath))
+                {
+                    options.BinaryLocation = ciChromePath;
+                }
+                
+                if (Directory.Exists(ciDriverPath))
+                {
+                    return new ChromeDriver(ciDriverPath, options);
+                }
+            }
+
+            // Default behavior for local development
+            _logger.Debug("Using WebDriverManager for local Chrome setup");
+            new DriverManager().SetUpDriver(new ChromeConfig(), "MatchingBrowser");
 
             if (settings.Headless)
             {
@@ -90,7 +114,7 @@ namespace CSTestFramework.Core.Reporting
             options.AddArgument("--disable-infobars");
 
             //This code is for configuring the browser to automatically save files downloaded during automated
-            //UI tests to a specific directory. Downloads happen automatically, so your tests don�t get stuck on browser prompts.
+            //UI tests to a specific directory. Downloads happen automatically, so your tests don't get stuck on browser prompts.
             // Configure download directory
             //if (!string.IsNullOrEmpty(settings.DownloadPath))
             //{
@@ -117,7 +141,7 @@ namespace CSTestFramework.Core.Reporting
             }
 
             //This code is for configuring the browser to automatically save files downloaded during automated
-            //UI tests to a specific directory. Downloads happen automatically, so your tests don�t get stuck on browser prompts.
+            //UI tests to a specific directory. Downloads happen automatically, so your tests don't get stuck on browser prompts.
             // Configure download directory
             //if (!string.IsNullOrEmpty(settings.DownloadPath))
             //{
@@ -154,7 +178,7 @@ namespace CSTestFramework.Core.Reporting
             options.AddArgument("--disable-infobars");
 
             //This code is for configuring the browser to automatically save files downloaded during automated
-            //UI tests to a specific directory. Downloads happen automatically, so your tests don�t get stuck on browser prompts.
+            //UI tests to a specific directory. Downloads happen automatically, so your tests don't get stuck on browser prompts.
             // Configure download directory
             //if (!string.IsNullOrEmpty(settings.DownloadPath))
             //{

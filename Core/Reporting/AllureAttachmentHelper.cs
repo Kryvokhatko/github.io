@@ -19,8 +19,7 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="screenshotBytes">The screenshot as byte array.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddScreenshot(byte[] screenshotBytes, string name = "Screenshot", string description = null)
+        public static void AddScreenshot(byte[] screenshotBytes, string name = "Screenshot")
         {
             try
             {
@@ -39,8 +38,7 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="filePath">The path to the screenshot file.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddScreenshotFromFile(string filePath, string name = "Screenshot", string description = null)
+        public static void AddScreenshotFromFile(string filePath, string name = "Screenshot")
         {
             try
             {
@@ -69,8 +67,7 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="data">The data object to serialize.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddJsonAttachment(object data, string name = "Data", string description = null)
+        public static void AddJsonAttachment(object data, string name = "Data")
         {
             try
             {
@@ -92,8 +89,7 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="htmlContent">The HTML content.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddHtmlAttachment(string htmlContent, string name = "Page", string description = null)
+        public static void AddHtmlAttachment(string htmlContent, string name = "Page")
         {
             try
             {
@@ -113,8 +109,7 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="logContent">The log content.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddLogAttachment(string logContent, string name = "Test Log", string description = null)
+        public static void AddLogAttachment(string logContent, string name = "Test Log")
         {
             try
             {
@@ -133,8 +128,7 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="filePath">The path to the text file.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddTextFileAttachment(string filePath, string name = "File", string description = null)
+        public static void AddTextFileAttachment(string filePath, string name = "File")
         {
             try
             {
@@ -191,8 +185,7 @@ namespace CSTestFramework.Core.Reporting
                     Timestamp = DateTime.UtcNow
                 };
 
-                AddJsonAttachment(apiData, $"API Request-Response ({httpMethod} {url})", 
-                    $"API interaction details for {httpMethod} {url}");
+                AddJsonAttachment(apiData, $"API Request-Response ({httpMethod} {url})");
             }
             catch (Exception ex)
             {
@@ -206,12 +199,11 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="testData">The test data object.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddTestDataAttachment(object testData, string name = "Test Data", string description = null)
+        public static void AddTestDataAttachment(object testData, string name = "Test Data")
         {
             try
             {
-                AddJsonAttachment(testData, name, description ?? "Test execution data");
+                AddJsonAttachment(testData, name);
             }
             catch (Exception ex)
             {
@@ -224,12 +216,11 @@ namespace CSTestFramework.Core.Reporting
         /// </summary>
         /// <param name="metrics">The performance metrics object.</param>
         /// <param name="name">The attachment name.</param>
-        /// <param name="description">Optional description.</param>
-        public static void AddPerformanceMetricsAttachment(object metrics, string name = "Performance Metrics", string description = null)
+        public static void AddPerformanceMetricsAttachment(object metrics, string name = "Performance Metrics")
         {
             try
             {
-                AddJsonAttachment(metrics, name, description ?? "Performance measurement data");
+                AddJsonAttachment(metrics, name);
             }
             catch (Exception ex)
             {
