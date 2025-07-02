@@ -139,7 +139,13 @@ jobs:
           
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
-              vstest.console.exe $dll.FullName /TestAdapterPath:packages /Logger:"trx;LogFileName=$pwd\TestResults.trx"
+              & "packages\NUnit.ConsoleRunner.3.16.3\tools\nunit3-console.exe" $dll.FullName `
+                --framework="net-4.8" `
+                --where="cat!=IgnoreOnCI" `
+                --labels=All `
+                --trace=Debug `
+                --result="TestResults.trx;format=trx" `
+                --result="allure-results;format=nunit3"
           }
 
           Write-Host "Contents of allure-results directory:"
