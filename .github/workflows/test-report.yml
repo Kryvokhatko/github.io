@@ -127,62 +127,130 @@ jobs:
           $testDlls | ForEach-Object { Write-Host $_.FullName }
           
           $testsFailed = $false
+          # Create unique result files for each test assembly
           foreach ($dll in $testDlls) {
-              Write-Host "Running tests in: $($dll.FullName)"
+              $dllName = [System.IO.Path]::GetFileNameWithoutExtension($dll.Name)
+              Write-Host "`nRunning tests in: $($dll.FullName)"
+              Write-Host "----------------------------------------`n"
+              
               try {
+                  # Create unique result and output files for this assembly
+                  $resultFile = Join-Path $allureResultsPath "$dllName-results.xml"
+                  $outputFile = Join-Path $allureResultsPath "$dllName-console.txt"
+                  $testLogFile = Join-Path $allureResultsPath "$dllName-test.log"
+                  
+                  Write-Host "Test assembly: $dllName"
+                  Write-Host "Result file: $resultFile"
+                  Write-Host "Console output: $outputFile"
+                  Write-Host "Test log: $testLogFile`n"
+                  
+                  # Run tests with more detailed output
                   & $nunitPath $dll.FullName `
                     --where="cat!=IgnoreOnCI" `
                     --labels=All `
                     --trace=Verbose `
-                    --result="$allureResultsPath/nunit-results.xml;format=nunit3" `
+                    --result="$resultFile;format=nunit3" `
                     --work="$allureResultsPath" `
-                    --out="$allureResultsPath/console-output.txt"
+                    --out="$outputFile" `
+                    --err="$testLogFile" `
+                    --teamcity `
+                    --noheader `
+                    --agents=1
                   
                   if ($LASTEXITCODE -ne 0) {
-                      Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
+                      Write-Host "Warning: Tests in $dllName failed with exit code $LASTEXITCODE"
+                      
+                      # Show error details if available
+                      if (Test-Path $testLogFile) {
+                          Write-Host "`nTest Error Log:"
+                          Write-Host "---------------"
+                          Get-Content $testLogFile
+                      }
+                      
+                      if (Test-Path $outputFile) {
+                          Write-Host "`nTest Console Output:"
+                          Write-Host "------------------"
+                          Get-Content $outputFile
+                      }
+                      
                       $testsFailed = $true
+                  }
+                  else {
+                      Write-Host "Tests completed successfully for $dllName"
                   }
               }
               catch {
-                  Write-Host "Error running tests in $($dll.FullName): $_"
+                  Write-Host "Error running tests in $dllName"
+                  Write-Host "Exception: $_"
+                  Write-Host "Stack Trace: $($_.Exception.StackTrace)"
                   $testsFailed = $true
               }
+              Write-Host "`n========================================`n"
           }
 
-          # Show detailed test results and logs
-          Write-Host "`nTest Run Details:"
-          Write-Host "==================`n"
+          # Combine all test results into a single Allure-compatible file
+          Write-Host "`nProcessing Test Results:"
+          Write-Host "=====================`n"
           
-          # Show console output if available
-          if (Test-Path "$allureResultsPath/console-output.txt") {
-              Write-Host "Test Console Output:"
-              Write-Host "-------------------"
-              Get-Content "$allureResultsPath/console-output.txt"
-              Write-Host "`n"
-          }
-          
-          # Show NUnit results
-          Write-Host "NUnit Results XML:"
-          Write-Host "----------------"
-          if (Test-Path "$allureResultsPath/nunit-results.xml") {
-              Get-Content "$allureResultsPath/nunit-results.xml"
+          # Get all result files
+          $resultFiles = Get-ChildItem $allureResultsPath -Filter "*-results.xml"
+          if ($resultFiles.Count -gt 0) {
+              Write-Host "Found $($resultFiles.Count) test result files"
+              
+              # Combine results into a single file
+              $combinedResultPath = Join-Path $allureResultsPath "combined-results.xml"
+              $firstFile = $true
+              
+              foreach ($resultFile in $resultFiles) {
+                  Write-Host "Processing: $($resultFile.Name)"
+                  $content = Get-Content $resultFile.FullName
+                  
+                  if ($firstFile) {
+                      Set-Content -Path $combinedResultPath -Value $content
+                      $firstFile = $false
+                  }
+                  else {
+                      # Append test cases to combined file
+                      $xml = [xml](Get-Content $resultFile.FullName)
+                      $testCases = $xml.SelectNodes("//test-case")
+                      Add-Content -Path $combinedResultPath -Value $testCases.OuterXml
+                  }
+              }
+              
+              Write-Host "Combined results saved to: $combinedResultPath"
           }
           else {
-              Write-Host "Warning: NUnit results file not found at $allureResultsPath/nunit-results.xml"
+              Write-Host "Warning: No test result files found"
           }
-          Write-Host "`n"
           
-          # Show all files in allure-results
-          Write-Host "Allure Results Directory Contents:"
-          Write-Host "--------------------------------"
+          Write-Host "`nTest Run Summary:"
+          Write-Host "=================="
+          
+          # Process each test assembly's results
+          Get-ChildItem $allureResultsPath -Filter "*-results.xml" | ForEach-Object {
+              $assemblyName = $_.BaseName -replace '-results$',''
+              Write-Host "`nAssembly: $assemblyName"
+              Write-Host "------------------------"
+              
+              # Show test log if exists
+              $logFile = Join-Path $allureResultsPath "$assemblyName-test.log"
+              if (Test-Path $logFile) {
+                  Write-Host "Test Log:"
+                  Get-Content $logFile | ForEach-Object { Write-Host "  $_" }
+              }
+              
+              # Show console output if exists
+              $outputFile = Join-Path $allureResultsPath "$assemblyName-console.txt"
+              if (Test-Path $outputFile) {
+                  Write-Host "`nConsole Output:"
+                  Get-Content $outputFile | ForEach-Object { Write-Host "  $_" }
+              }
+          }
+          
+          Write-Host "`nAllure Results Directory Contents:"
+          Write-Host "================================"
           Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { 
               Write-Host $_.FullName
-              if ($_.Extension -in ".xml", ".json", ".txt") {
-                  Write-Host "`nContent of $($_.Name):"
-                  Write-Host "-------------------"
-                  Get-Content $_.FullName
-                  Write-Host "`n"
-              }
           }
 
           # Set output using environment file
