@@ -131,13 +131,12 @@ jobs:
               Write-Host "Running tests in: $($dll.FullName)"
               try {
                   & $nunitPath $dll.FullName `
-                    --framework="net-4.8" `
                     --where="cat!=IgnoreOnCI" `
-                    --labels=Before `
-                    --trace=Debug `
+                    --labels=All `
+                    --trace=Verbose `
                     --result="$allureResultsPath/nunit-results.xml;format=nunit3" `
                     --work="$allureResultsPath" `
-                    --inprocess
+                    --out="$allureResultsPath/console-output.txt"
                   
                   if ($LASTEXITCODE -ne 0) {
                       Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
@@ -150,21 +149,39 @@ jobs:
               }
           }
 
-          # Debug: Show test results
-          Write-Host "NUnit Results XML content:"
+          # Show detailed test results and logs
+          Write-Host "`nTest Run Details:"
+          Write-Host "==================`n"
+          
+          # Show console output if available
+          if (Test-Path "$allureResultsPath/console-output.txt") {
+              Write-Host "Test Console Output:"
+              Write-Host "-------------------"
+              Get-Content "$allureResultsPath/console-output.txt"
+              Write-Host "`n"
+          }
+          
+          # Show NUnit results
+          Write-Host "NUnit Results XML:"
+          Write-Host "----------------"
           if (Test-Path "$allureResultsPath/nunit-results.xml") {
               Get-Content "$allureResultsPath/nunit-results.xml"
           }
           else {
               Write-Host "Warning: NUnit results file not found at $allureResultsPath/nunit-results.xml"
           }
+          Write-Host "`n"
           
-          Write-Host "Contents of allure-results directory:"
+          # Show all files in allure-results
+          Write-Host "Allure Results Directory Contents:"
+          Write-Host "--------------------------------"
           Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { 
               Write-Host $_.FullName
-              if ($_.Extension -in ".xml", ".json") {
-                  Write-Host "Content of $($_.Name):"
+              if ($_.Extension -in ".xml", ".json", ".txt") {
+                  Write-Host "`nContent of $($_.Name):"
+                  Write-Host "-------------------"
                   Get-Content $_.FullName
+                  Write-Host "`n"
               }
           }
 
