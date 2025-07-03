@@ -67,6 +67,7 @@ jobs:
         shell: pwsh
         continue-on-error: true  # Allow the workflow to continue even if tests fail
         id: run_tests
+        timeout-minutes: 15  # Set maximum runtime for the entire test step
         run: |
           Write-Host "Current directory: $pwd"
           Write-Host "Directory contents:"
@@ -144,27 +145,37 @@ jobs:
                   Write-Host "Console output: $outputFile"
                   Write-Host "Test log: $testLogFile`n"
                   
-                  # Redirect error stream to log file and run tests
-                  $testCommand = "$nunitPath $($dll.FullName) " + `
-                    "--where=`"cat!=IgnoreOnCI`" " + `
-                    "--labels=All " + `
-                    "--trace=Verbose " + `
-                    "--result=`"$resultFile;format=nunit3`" " + `
-                    "--work=`"$allureResultsPath`" " + `
-                    "--out=`"$outputFile`" " + `
-                    "--noheader"
-                    
-                  Write-Host "Executing: $testCommand"
-                  $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
-                  $processStartInfo.FileName = "powershell"
-                  $processStartInfo.Arguments = "-Command `"$testCommand 2>`"$testLogFile`"`""
-                  $processStartInfo.UseShellExecute = $false
-                  $processStartInfo.RedirectStandardOutput = $true
-                  $processStartInfo.RedirectStandardError = $true
+                  # Run tests directly with output redirection
+                  Write-Host "Running tests for: $($dll.FullName)"
+                  Write-Host "Results will be saved to: $resultFile"
+                  Write-Host "Console output will be saved to: $outputFile"
                   
-                  $process = [System.Diagnostics.Process]::Start($processStartInfo)
-                  $process.WaitForExit()
-                  $exitCode = $process.ExitCode
+                  try {
+                      # Run NUnit with a 10-minute timeout
+                      $output = & $nunitPath $dll.FullName `
+                          --where="cat!=IgnoreOnCI" `
+                          --labels=All `
+                          --trace=Verbose `
+                          --result="$resultFile;format=nunit3" `
+                          --work="$allureResultsPath" `
+                          --out="$outputFile" `
+                          --noheader `
+                          --timeout=600000 2>&1
+                      
+                      $exitCode = $LASTEXITCODE
+                      
+                      # Save any error output
+                      if ($output) {
+                          $output | Out-File -FilePath $testLogFile -Encoding UTF8
+                      }
+                      
+                      Write-Host "Test execution completed with exit code: $exitCode"
+                  }
+                  catch {
+                      Write-Host "Error executing tests: $_"
+                      $exitCode = 1
+                      $_ | Out-File -FilePath $testLogFile -Append -Encoding UTF8
+                  }
                   
                                       if ($exitCode -ne 0) {
                       Write-Host "Warning: Tests in $dllName failed with exit code $exitCode"
