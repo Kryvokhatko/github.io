@@ -29,6 +29,10 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Setup VSTest
+        uses: darenm/Setup-VSTest@v1
+        id: setup_vstest
+
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
         
@@ -103,7 +107,20 @@ jobs:
           # Convert NUnit results to TRX format using VSTest
           $trxPath = Join-Path ${{ github.workspace }} "TestResults.trx"
           Write-Host "Generating TRX file at: $trxPath"
-          vstest.console.exe @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=$trxPath"
+          
+          # Use VSTest path from setup-vstest action
+          $vstestPath = $env:VSTEST_PATH
+          if (-not $vstestPath) {
+              $vstestPath = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+          }
+          Write-Host "Using VSTest at: $vstestPath"
+          
+          if (-not (Test-Path $vstestPath)) {
+              Write-Host "Error: VSTest not found at $vstestPath"
+              exit 1
+          }
+          
+          & $vstestPath @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=$trxPath"
 
           # Verify TRX file exists
           if (Test-Path $trxPath) {
