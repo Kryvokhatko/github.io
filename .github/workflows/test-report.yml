@@ -65,6 +65,8 @@ jobs:
 
       - name: Run Tests
         shell: pwsh
+        continue-on-error: true  # Allow the workflow to continue even if tests fail
+        id: run_tests
         run: |
           Write-Host "Current directory: $pwd"
           Write-Host "Directory contents:"
@@ -97,6 +99,7 @@ jobs:
           Write-Host "Found test assemblies:"
           $testDlls | ForEach-Object { Write-Host $_.FullName }
           
+          $testsFailed = $false
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
               & $nunitPath $dll.FullName `
@@ -110,6 +113,7 @@ jobs:
               
               if ($LASTEXITCODE -ne 0) {
                   Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
+                  $testsFailed = $true
               }
           }
 
@@ -153,6 +157,14 @@ jobs:
           $executorJson = $executor | ConvertTo-Json
           Set-Content -Path "$allureResultsPath/executor.json" -Value $executorJson
           Write-Host "Created executor.json in allure-results directory"
+
+          # Set output variable for test status
+          if ($testsFailed) {
+              Write-Host "::set-output name=tests_failed::true"
+              exit 1  # Signal failure but allow continue-on-error to proceed
+          } else {
+              Write-Host "::set-output name=tests_failed::false"
+          }
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
