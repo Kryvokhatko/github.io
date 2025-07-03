@@ -75,6 +75,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path $allureResultsPath
           Write-Host "Created Allure results directory at: $allureResultsPath"
           
+          # Copy allureConfig.json to results directory
+          Copy-Item "allureConfig.json" -Destination "$allureResultsPath/allureConfig.json"
+          Write-Host "Copied allureConfig.json to results directory"
+          
           # Set NUnit Console path
           $nunitPath = Join-Path ${{ github.workspace }} "packages\NUnit.ConsoleRunner.3.20.1\tools\nunit3-console.exe"
           Write-Host "Using NUnit Console at: $nunitPath"
@@ -96,12 +100,24 @@ jobs:
                 --where="cat!=IgnoreOnCI" `
                 --labels=Before `
                 --trace=Debug `
-                --result="${{ github.workspace }}/TestResults.xml;format=nunit3" `
-                --result="$allureResultsPath/allure-results.xml;format=nunit3"
+                --result="$allureResultsPath/nunit-results.xml;format=nunit3" `
+                --result="$allureResultsPath/allure-results.xml;format=nunit3" `
+                --work="$allureResultsPath"
               
               if ($LASTEXITCODE -ne 0) {
                   Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
               }
+          }
+
+          # Debug: Show test results
+          Write-Host "NUnit Results XML content:"
+          if (Test-Path "$allureResultsPath/nunit-results.xml") {
+              Get-Content "$allureResultsPath/nunit-results.xml"
+          }
+          
+          Write-Host "Allure Results XML content:"
+          if (Test-Path "$allureResultsPath/allure-results.xml") {
+              Get-Content "$allureResultsPath/allure-results.xml"
           }
 
           # Convert NUnit results to TRX format using VSTest
@@ -113,7 +129,6 @@ jobs:
           Write-Host "Using VSTest at: $vstestPath"
           
           if (-not (Test-Path $vstestPath)) {
-              Write-Host "Error: VSTest not found at $vstestPath"
               Write-Host "Searching for VSTest in common locations..."
               
               $possiblePaths = @(
@@ -153,7 +168,18 @@ jobs:
           }
 
           Write-Host "Contents of allure-results directory:"
-          Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { Write-Host $_.FullName }
+          Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { 
+              Write-Host $_.FullName
+              if ($_.Extension -in ".xml", ".json") {
+                  Write-Host "Content of $($_.Name):"
+                  Get-Content $_.FullName
+              }
+          }
+
+          # Create categories.json in allure-results
+          $categoriesContent = '[{"name":"Failed tests","matchedStatuses":["failed"]},{"name":"Broken tests","matchedStatuses":["broken"]},{"name":"Ignored tests","matchedStatuses":["skipped"]},{"name":"Unknown tests","matchedStatuses":["unknown"]}]'
+          Set-Content -Path "$allureResultsPath/categories.json" -Value $categoriesContent
+          Write-Host "Created categories.json in allure-results directory"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
