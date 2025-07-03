@@ -77,6 +77,32 @@ jobs:
           New-Item -ItemType Directory -Force -Path $allureResultsPath
           Write-Host "Created Allure results directory at: $allureResultsPath"
           
+          # Create environment.properties in allure-results
+          $envProps = @(
+              "Browser=Chrome",
+              "Browser.Version=120.0",
+              "Operating.System=$([System.Environment]::OSVersion.ToString())",
+              "Framework=CSTestFramework",
+              "Language=C#",
+              "Base.URL=https://demo.litecart.net/"
+          )
+          Set-Content -Path "$allureResultsPath/environment.properties" -Value $envProps
+          Write-Host "Created environment.properties in allure-results directory"
+
+          # Create executor.json in allure-results
+          $executor = @{
+              name = "GitHub Actions"
+              type = "github"
+              reportName = "CSTestFramework Test Report"
+              buildOrder = "${{ github.run_number }}"
+              buildName = "Build #${{ github.run_number }}"
+              buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              reportUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          $executorJson = $executor | ConvertTo-Json
+          Set-Content -Path "$allureResultsPath/executor.json" -Value $executorJson
+          Write-Host "Created executor.json in allure-results directory"
+          
           # Copy allureConfig.json to results directory
           Copy-Item "allureConfig.json" -Destination "$allureResultsPath/allureConfig.json"
           Write-Host "Copied allureConfig.json to results directory"
@@ -141,32 +167,6 @@ jobs:
                   Get-Content $_.FullName
               }
           }
-
-          # Create environment.properties in allure-results
-          $envProps = @(
-              "Browser=Chrome",
-              "Browser.Version=120.0",
-              "Operating.System=$([System.Environment]::OSVersion.ToString())",
-              "Framework=CSTestFramework",
-              "Language=C#",
-              "Base.URL=https://demo.litecart.net/"
-          )
-          Set-Content -Path "$allureResultsPath/environment.properties" -Value $envProps
-          Write-Host "Created environment.properties in allure-results directory"
-
-          # Create executor.json in allure-results
-          $executor = @{
-              name = "GitHub Actions"
-              type = "github"
-              reportName = "CSTestFramework Test Report"
-              buildOrder = "${{ github.run_number }}"
-              buildName = "Build #${{ github.run_number }}"
-              buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-              reportUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-          $executorJson = $executor | ConvertTo-Json
-          Set-Content -Path "$allureResultsPath/executor.json" -Value $executorJson
-          Write-Host "Created executor.json in allure-results directory"
 
           # Set output using environment file
           if ($testsFailed) {
