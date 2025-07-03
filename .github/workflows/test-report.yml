@@ -91,6 +91,7 @@ jobs:
           
           if (-not (Test-Path $nunitPath)) {
               Write-Host "Error: NUnit Console not found at $nunitPath"
+              "tests_failed=true" >> $env:GITHUB_OUTPUT
               exit 1
           }
           
@@ -102,17 +103,23 @@ jobs:
           $testsFailed = $false
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
-              & $nunitPath $dll.FullName `
-                --framework="net-4.8" `
-                --where="cat!=IgnoreOnCI" `
-                --labels=Before `
-                --trace=Debug `
-                --result="$allureResultsPath/nunit-results.xml;format=nunit3" `
-                --work="$allureResultsPath" `
-                --inprocess
-              
-              if ($LASTEXITCODE -ne 0) {
-                  Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
+              try {
+                  & $nunitPath $dll.FullName `
+                    --framework="net-4.8" `
+                    --where="cat!=IgnoreOnCI" `
+                    --labels=Before `
+                    --trace=Debug `
+                    --result="$allureResultsPath/nunit-results.xml;format=nunit3" `
+                    --work="$allureResultsPath" `
+                    --inprocess
+                  
+                  if ($LASTEXITCODE -ne 0) {
+                      Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
+                      $testsFailed = $true
+                  }
+              }
+              catch {
+                  Write-Host "Error running tests in $($dll.FullName): $_"
                   $testsFailed = $true
               }
           }
@@ -121,6 +128,9 @@ jobs:
           Write-Host "NUnit Results XML content:"
           if (Test-Path "$allureResultsPath/nunit-results.xml") {
               Get-Content "$allureResultsPath/nunit-results.xml"
+          }
+          else {
+              Write-Host "Warning: NUnit results file not found at $allureResultsPath/nunit-results.xml"
           }
           
           Write-Host "Contents of allure-results directory:"
@@ -158,12 +168,12 @@ jobs:
           Set-Content -Path "$allureResultsPath/executor.json" -Value $executorJson
           Write-Host "Created executor.json in allure-results directory"
 
-          # Set output variable for test status
+          # Set output using environment file
           if ($testsFailed) {
-              Write-Host "::set-output name=tests_failed::true"
+              "tests_failed=true" >> $env:GITHUB_OUTPUT
               exit 1  # Signal failure but allow continue-on-error to proceed
           } else {
-              Write-Host "::set-output name=tests_failed::false"
+              "tests_failed=false" >> $env:GITHUB_OUTPUT
           }
 
       - name: Upload test results
