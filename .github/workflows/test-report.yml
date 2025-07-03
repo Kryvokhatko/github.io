@@ -70,15 +70,17 @@ jobs:
         timeout-minutes: 15  # Set maximum runtime for the entire test step
         run: |
           Write-Host "Current directory: $pwd"
-          Write-Host "Directory contents:"
-          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "Test assemblies:"
+          Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | 
+              Where-Object { $_.FullName -match 'bin\\Debug' } | 
+              ForEach-Object { Write-Host "  - $($_.FullName)" }
 
-          # Create results directory with explicit path
+          # Create and prepare Allure results directory
           $allureResultsPath = Join-Path ${{ github.workspace }} "allure-results"
           New-Item -ItemType Directory -Force -Path $allureResultsPath
           Write-Host "Created Allure results directory at: $allureResultsPath"
           
-          # Create environment.properties in allure-results
+          # Create environment.properties with proper line endings
           $envProps = @(
               "Browser=Chrome",
               "Browser.Version=120.0",
@@ -86,12 +88,16 @@ jobs:
               "Framework=CSTestFramework",
               "Language=C#",
               "Base.URL=https://demo.litecart.net/"
+          ) -join "`n"  # Ensure proper line endings
+          [System.IO.File]::WriteAllText(
+              (Join-Path $allureResultsPath "environment.properties"),
+              $envProps,
+              [System.Text.Encoding]::UTF8
           )
-          Set-Content -Path "$allureResultsPath/environment.properties" -Value $envProps
           Write-Host "Created environment.properties in allure-results directory"
 
-          # Create executor.json in allure-results
-          $executor = @{
+          # Create executor.json with proper formatting
+          $executor = [ordered]@{
               name = "GitHub Actions"
               type = "github"
               reportName = "CSTestFramework Test Report"
@@ -100,9 +106,17 @@ jobs:
               buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
               reportUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }
-          $executorJson = $executor | ConvertTo-Json
-          Set-Content -Path "$allureResultsPath/executor.json" -Value $executorJson
+          $executorJson = $executor | ConvertTo-Json -Depth 10
+          [System.IO.File]::WriteAllText(
+              (Join-Path $allureResultsPath "executor.json"),
+              $executorJson,
+              [System.Text.Encoding]::UTF8
+          )
           Write-Host "Created executor.json in allure-results directory"
+          
+          # Verify files were created correctly
+          Get-Content (Join-Path $allureResultsPath "environment.properties")
+          Get-Content (Join-Path $allureResultsPath "executor.json")
           
           # Copy allureConfig.json to results directory
           Copy-Item "allureConfig.json" -Destination "$allureResultsPath/allureConfig.json"
