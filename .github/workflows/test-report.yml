@@ -108,16 +108,38 @@ jobs:
           $trxPath = Join-Path ${{ github.workspace }} "TestResults.trx"
           Write-Host "Generating TRX file at: $trxPath"
           
-          # Use VSTest path from setup-vstest action
-          $vstestPath = $env:VSTEST_PATH
-          if (-not $vstestPath) {
-              $vstestPath = "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          }
+          # Use VSTest path from Visual Studio 2022
+          $vstestPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
           Write-Host "Using VSTest at: $vstestPath"
           
           if (-not (Test-Path $vstestPath)) {
               Write-Host "Error: VSTest not found at $vstestPath"
-              exit 1
+              Write-Host "Searching for VSTest in common locations..."
+              
+              $possiblePaths = @(
+                  "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
+                  "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
+                  "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
+                  "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
+                  "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
+                  "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
+              )
+              
+              foreach ($path in $possiblePaths) {
+                  Write-Host "Checking $path"
+                  if (Test-Path $path) {
+                      $vstestPath = $path
+                      Write-Host "Found VSTest at: $vstestPath"
+                      break
+                  }
+              }
+              
+              if (-not (Test-Path $vstestPath)) {
+                  Write-Host "VSTest not found in any common location. Listing Visual Studio installation directory:"
+                  Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse | ForEach-Object { Write-Host $_.FullName }
+                  Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse | ForEach-Object { Write-Host $_.FullName }
+                  exit 1
+              }
           }
           
           & $vstestPath @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=$trxPath"
