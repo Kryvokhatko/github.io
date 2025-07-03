@@ -52,18 +52,38 @@ jobs:
       - name: Download Allure History
         continue-on-error: true
         run: |
-          mkdir allure-history
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history.json" -OutFile "allure-history/history.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history-trend.json" -OutFile "allure-history/history-trend.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/categories-trend.json" -OutFile "allure-history/categories-trend.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/duration-trend.json" -OutFile "allure-history/duration-trend.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/retry-trend.json" -OutFile "allure-history/retry-trend.json"
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/allure-history"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history.json" -OutFile "${{ github.workspace }}/allure-history/history.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history-trend.json" -OutFile "${{ github.workspace }}/allure-history/history-trend.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/categories-trend.json" -OutFile "${{ github.workspace }}/allure-history/categories-trend.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/duration-trend.json" -OutFile "${{ github.workspace }}/allure-history/duration-trend.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/retry-trend.json" -OutFile "${{ github.workspace }}/allure-history/retry-trend.json"
 
       - name: Run Tests
         shell: pwsh
         run: |
-          $nunitPath = "packages\NUnit.ConsoleRunner.3.16.3\tools\nunit3-console.exe"
+          Write-Host "Current directory: $pwd"
+          Write-Host "Directory contents:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+          # Create results directory with explicit path
+          $allureResultsPath = Join-Path ${{ github.workspace }} "allure-results"
+          New-Item -ItemType Directory -Force -Path $allureResultsPath
+          Write-Host "Created Allure results directory at: $allureResultsPath"
+          
+          # Set NUnit Console path
+          $nunitPath = Join-Path ${{ github.workspace }} "packages\NUnit.ConsoleRunner.3.20.1\tools\nunit3-console.exe"
+          Write-Host "Using NUnit Console at: $nunitPath"
+          
+          if (-not (Test-Path $nunitPath)) {
+              Write-Host "Error: NUnit Console not found at $nunitPath"
+              exit 1
+          }
+          
+          # Find test assemblies
           $testDlls = Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }
+          Write-Host "Found test assemblies:"
+          $testDlls | ForEach-Object { Write-Host $_.FullName }
           
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
@@ -72,12 +92,16 @@ jobs:
                 --where="cat!=IgnoreOnCI" `
                 --labels=Before `
                 --trace=Debug `
-                --result="TestResults.xml;format=nunit3" `
-                --result="allure-results/allure-results.xml;format=nunit3"
+                --result="${{ github.workspace }}/TestResults.xml;format=nunit3" `
+                --result="$allureResultsPath/allure-results.xml;format=nunit3"
+              
+              if ($LASTEXITCODE -ne 0) {
+                  Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
+              }
           }
 
           # Convert NUnit results to TRX format using VSTest
-          $trxPath = Join-Path $pwd "TestResults.trx"
+          $trxPath = Join-Path ${{ github.workspace }} "TestResults.trx"
           Write-Host "Generating TRX file at: $trxPath"
           vstest.console.exe @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=$trxPath"
 
@@ -90,7 +114,7 @@ jobs:
           }
 
           Write-Host "Contents of allure-results directory:"
-          Get-ChildItem "allure-results" -Recurse | ForEach-Object { Write-Host $_.FullName }
+          Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { Write-Host $_.FullName }
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
