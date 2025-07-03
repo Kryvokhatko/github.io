@@ -144,21 +144,30 @@ jobs:
                   Write-Host "Console output: $outputFile"
                   Write-Host "Test log: $testLogFile`n"
                   
-                  # Run tests with more detailed output
-                  & $nunitPath $dll.FullName `
-                    --where="cat!=IgnoreOnCI" `
-                    --labels=All `
-                    --trace=Verbose `
-                    --result="$resultFile;format=nunit3" `
-                    --work="$allureResultsPath" `
-                    --out="$outputFile" `
-                    --err="$testLogFile" `
-                    --teamcity `
-                    --noheader `
-                    --agents=1
+                  # Redirect error stream to log file and run tests
+                  $testCommand = "$nunitPath $($dll.FullName) " + `
+                    "--where=`"cat!=IgnoreOnCI`" " + `
+                    "--labels=All " + `
+                    "--trace=Verbose " + `
+                    "--result=`"$resultFile;format=nunit3`" " + `
+                    "--work=`"$allureResultsPath`" " + `
+                    "--out=`"$outputFile`" " + `
+                    "--noheader"
+                    
+                  Write-Host "Executing: $testCommand"
+                  $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+                  $processStartInfo.FileName = "powershell"
+                  $processStartInfo.Arguments = "-Command `"$testCommand 2>`"$testLogFile`"`""
+                  $processStartInfo.UseShellExecute = $false
+                  $processStartInfo.RedirectStandardOutput = $true
+                  $processStartInfo.RedirectStandardError = $true
                   
-                  if ($LASTEXITCODE -ne 0) {
-                      Write-Host "Warning: Tests in $dllName failed with exit code $LASTEXITCODE"
+                  $process = [System.Diagnostics.Process]::Start($processStartInfo)
+                  $process.WaitForExit()
+                  $exitCode = $process.ExitCode
+                  
+                                      if ($exitCode -ne 0) {
+                      Write-Host "Warning: Tests in $dllName failed with exit code $exitCode"
                       
                       # Show error details if available
                       if (Test-Path $testLogFile) {
@@ -174,10 +183,17 @@ jobs:
                       }
                       
                       $testsFailed = $true
-                  }
-                  else {
+                    }
+                    else {
                       Write-Host "Tests completed successfully for $dllName"
-                  }
+                      
+                      # Show test output even on success
+                      if (Test-Path $outputFile) {
+                          Write-Host "`nTest Console Output:"
+                          Write-Host "------------------"
+                          Get-Content $outputFile
+                      }
+                    }
               }
               catch {
                   Write-Host "Error running tests in $dllName"
