@@ -19,11 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup .NET
+      - name: Setup Windows SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '4.8.x'
-          
+          dotnet-version: |
+            6.0.x
+            7.0.x
+      
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
@@ -37,10 +39,15 @@ jobs:
         run: msbuild CSTestFramework.sln /p:Configuration=Debug
 
       - name: Download Allure CommandLine
+        shell: pwsh
         run: |
+          Write-Host "Downloading Allure..."
           Invoke-WebRequest -Uri "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.zip" -OutFile "allure-commandline.zip"
+          Write-Host "Extracting Allure..."
           Expand-Archive -Path "allure-commandline.zip" -DestinationPath .
           Move-Item -Path "allure-2.24.1" -Destination "allure-commandline"
+          Write-Host "Allure extracted to:"
+          Get-ChildItem "allure-commandline" -Recurse
 
       - name: Download Allure History
         continue-on-error: true
@@ -103,22 +110,40 @@ jobs:
 
       - name: Generate Allure Report
         if: always()
+        shell: pwsh
         run: |
+          Write-Host "Current directory structure:"
+          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+          # Create directories
+          New-Item -ItemType Directory -Force -Path "_site"
+          New-Item -ItemType Directory -Force -Path "allure-results"
+          New-Item -ItemType Directory -Force -Path "_site/history"
+
           # Copy history if it exists
           if (Test-Path "allure-history") {
+            Write-Host "Copying history files..."
             Copy-Item -Path "allure-history/*" -Destination "allure-results" -Recurse -Force
           }
           
           # Generate report
-          ./allure-commandline/bin/allure generate allure-results --clean -o allure-report
+          Write-Host "Generating Allure report..."
+          $allureCmd = Join-Path -Path $pwd -ChildPath "allure-commandline\bin\allure.bat"
+          Write-Host "Allure command path: $allureCmd"
+          & $allureCmd generate allure-results --clean -o allure-report
           
           # Copy report to GitHub Pages directory
-          mkdir _site
-          Copy-Item -Path "allure-report/*" -Destination "_site" -Recurse
+          Write-Host "Copying report to _site directory..."
+          Copy-Item -Path "allure-report/*" -Destination "_site" -Recurse -Force
           
           # Preserve history for next run
-          mkdir -p _site/history
-          Copy-Item -Path "allure-report/history/*" -Destination "_site/history" -Recurse -Force
+          Write-Host "Preserving history..."
+          if (Test-Path "allure-report/history") {
+            Copy-Item -Path "allure-report/history/*" -Destination "_site/history" -Recurse -Force
+          }
+
+          Write-Host "Final _site directory contents:"
+          Get-ChildItem "_site" -Recurse | ForEach-Object { Write-Host $_.FullName }
 
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
@@ -135,6 +160,8 @@ jobs:
       - name: Upload Pages artifact
         if: always()
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
 
   deploy:
     if: always()
