@@ -176,14 +176,6 @@ jobs:
               "tests_failed=false" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: ${{ github.workspace }}/TestResults.trx
-          retention-days: 30
-
       - name: Upload Allure results
         uses: actions/upload-artifact@v4
         if: always()
