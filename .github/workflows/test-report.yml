@@ -79,6 +79,10 @@ jobs:
           Copy-Item "allureConfig.json" -Destination "$allureResultsPath/allureConfig.json"
           Write-Host "Copied allureConfig.json to results directory"
           
+          # Set environment variable for Allure
+          $env:ALLURE_CONFIG = Join-Path $pwd "allureConfig.json"
+          Write-Host "Set ALLURE_CONFIG environment variable to: $env:ALLURE_CONFIG"
+          
           # Set NUnit Console path
           $nunitPath = Join-Path ${{ github.workspace }} "packages\NUnit.ConsoleRunner.3.20.1\tools\nunit3-console.exe"
           Write-Host "Using NUnit Console at: $nunitPath"
@@ -101,8 +105,8 @@ jobs:
                 --labels=Before `
                 --trace=Debug `
                 --result="$allureResultsPath/nunit-results.xml;format=nunit3" `
-                --result="$allureResultsPath/allure-results.xml;format=nunit3" `
-                --work="$allureResultsPath"
+                --work="$allureResultsPath" `
+                --inprocess
               
               if ($LASTEXITCODE -ne 0) {
                   Write-Host "Warning: Tests in $($dll.FullName) failed with exit code $LASTEXITCODE"
@@ -115,58 +119,6 @@ jobs:
               Get-Content "$allureResultsPath/nunit-results.xml"
           }
           
-          Write-Host "Allure Results XML content:"
-          if (Test-Path "$allureResultsPath/allure-results.xml") {
-              Get-Content "$allureResultsPath/allure-results.xml"
-          }
-
-          # Convert NUnit results to TRX format using VSTest
-          $trxPath = Join-Path ${{ github.workspace }} "TestResults.trx"
-          Write-Host "Generating TRX file at: $trxPath"
-          
-          # Use VSTest path from Visual Studio 2022
-          $vstestPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          Write-Host "Using VSTest at: $vstestPath"
-          
-          if (-not (Test-Path $vstestPath)) {
-              Write-Host "Searching for VSTest in common locations..."
-              
-              $possiblePaths = @(
-                  "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
-                  "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
-                  "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
-                  "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
-                  "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe",
-                  "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-              )
-              
-              foreach ($path in $possiblePaths) {
-                  Write-Host "Checking $path"
-                  if (Test-Path $path) {
-                      $vstestPath = $path
-                      Write-Host "Found VSTest at: $vstestPath"
-                      break
-                  }
-              }
-              
-              if (-not (Test-Path $vstestPath)) {
-                  Write-Host "VSTest not found in any common location. Listing Visual Studio installation directory:"
-                  Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse | ForEach-Object { Write-Host $_.FullName }
-                  Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse | ForEach-Object { Write-Host $_.FullName }
-                  exit 1
-              }
-          }
-          
-          & $vstestPath @(Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }) /Logger:"trx;LogFileName=$trxPath"
-
-          # Verify TRX file exists
-          if (Test-Path $trxPath) {
-              Write-Host "TRX file generated successfully at: $trxPath"
-              Get-Content $trxPath | Select-Object -First 5
-          } else {
-              Write-Host "Warning: TRX file was not generated at: $trxPath"
-          }
-
           Write-Host "Contents of allure-results directory:"
           Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { 
               Write-Host $_.FullName
@@ -176,10 +128,31 @@ jobs:
               }
           }
 
-          # Create categories.json in allure-results
-          $categoriesContent = '[{"name":"Failed tests","matchedStatuses":["failed"]},{"name":"Broken tests","matchedStatuses":["broken"]},{"name":"Ignored tests","matchedStatuses":["skipped"]},{"name":"Unknown tests","matchedStatuses":["unknown"]}]'
-          Set-Content -Path "$allureResultsPath/categories.json" -Value $categoriesContent
-          Write-Host "Created categories.json in allure-results directory"
+          # Create environment.properties in allure-results
+          $envProps = @(
+              "Browser=Chrome",
+              "Browser.Version=120.0",
+              "Operating.System=$([System.Environment]::OSVersion.ToString())",
+              "Framework=CSTestFramework",
+              "Language=C#",
+              "Base.URL=https://demo.litecart.net/"
+          )
+          Set-Content -Path "$allureResultsPath/environment.properties" -Value $envProps
+          Write-Host "Created environment.properties in allure-results directory"
+
+          # Create executor.json in allure-results
+          $executor = @{
+              name = "GitHub Actions"
+              type = "github"
+              reportName = "CSTestFramework Test Report"
+              buildOrder = "${{ github.run_number }}"
+              buildName = "Build #${{ github.run_number }}"
+              buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              reportUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          $executorJson = $executor | ConvertTo-Json
+          Set-Content -Path "$allureResultsPath/executor.json" -Value $executorJson
+          Write-Host "Created executor.json in allure-results directory"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
