@@ -1,144 +1,62 @@
-name: Test and Publish Report
+name: Test Report
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
-
-env:
-  CHROME_VERSION: "138.0.7204.92"
-  CI_CHROME_PATH: "C:\\chrome-win64\\chrome.exe"
-  CI_CHROMEDRIVER_PATH: "C:\\ChromeDriver"
 
 jobs:
   test:
     runs-on: windows-latest
+    
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v1
-        
-      - name: Restore NuGet Packages
-        run: nuget restore CSTestFramework.sln
-
-      - name: Setup Chrome and ChromeDriver
-        shell: pwsh
-        run: |
-          Write-Host "Installing Chrome and ChromeDriver version $env:CHROME_VERSION"
-          
-          # Download Chrome
-          $ChromeZip = "$env:TEMP\chrome-win64.zip"
-          $ChromeUrl = "https://storage.googleapis.com/chrome-for-testing-public/$env:CHROME_VERSION/win64/chrome-win64.zip"
-          Invoke-WebRequest -Uri $ChromeUrl -OutFile $ChromeZip
-          
-          # Extract Chrome
-          Write-Host "Extracting Chrome..."
-          Expand-Archive $ChromeZip -DestinationPath "C:\" -Force
-          Remove-Item $ChromeZip
-          
-          # Download ChromeDriver
-          $DriverZip = "$env:TEMP\chromedriver-win64.zip"
-          $DriverUrl = "https://storage.googleapis.com/chrome-for-testing-public/$env:CHROME_VERSION/win64/chromedriver-win64.zip"
-          Invoke-WebRequest -Uri $DriverUrl -OutFile $DriverZip
-          
-          # Extract ChromeDriver
-          Write-Host "Extracting ChromeDriver..."
-          New-Item -ItemType Directory -Force -Path $env:CI_CHROMEDRIVER_PATH
-          Expand-Archive $DriverZip -DestinationPath "C:\" -Force
-          Copy-Item "C:\chromedriver-win64\chromedriver.exe" $env:CI_CHROMEDRIVER_PATH -Force
-          Remove-Item $DriverZip
-          Remove-Item "C:\chromedriver-win64" -Recurse -Force
-          
-          # Verify installation
-          Write-Host "Chrome version:"
-          & $env:CI_CHROME_PATH --version
-          Write-Host "ChromeDriver version:"
-          & "$env:CI_CHROMEDRIVER_PATH\chromedriver.exe" --version
-      
-      - name: Setup .NET Framework
-        shell: pwsh
-        run: |
-          # Download .NET Framework 4.8 Developer Pack
-          $url = "https://go.microsoft.com/fwlink/?linkid=2088517"
-          $outFile = "ndp48-devpack-enu.exe"
-          
-          Write-Host "Downloading .NET Framework 4.8 Developer Pack..."
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          $webClient = New-Object System.Net.WebClient
-          $webClient.DownloadFile($url, $outFile)
-          
-          Write-Host "Installing .NET Framework 4.8 Developer Pack..."
-          Start-Process -FilePath $outFile -ArgumentList "/quiet", "/norestart" -Wait -NoNewWindow
-          
-          Write-Host ".NET Framework 4.8 Developer Pack installation completed"
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '4.8.x'
           
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1.3.1
-          
-      - name: Setup VSTest
-        uses: darenm/Setup-VSTest@v1
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
         
-      - name: Build Solution
+      - name: Restore NuGet packages
+        run: nuget restore CSTestFramework.sln
+
+      - name: Build solution
+        run: msbuild CSTestFramework.sln /p:Configuration=Debug
+
+      - name: Download Allure CommandLine
         run: |
-          msbuild CSTestFramework.sln /p:Configuration=Debug /p:Platform="Any CPU" /p:RestorePackages=true /verbosity:detailed
-        
-      - name: Install Allure
-        shell: pwsh
+          Invoke-WebRequest -Uri "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.zip" -OutFile "allure-commandline.zip"
+          Expand-Archive -Path "allure-commandline.zip" -DestinationPath .
+          Move-Item -Path "allure-2.24.1" -Destination "allure-commandline"
+
+      - name: Download Allure History
+        continue-on-error: true
         run: |
-          Write-Host "Installing Allure..."
-          
-          # Download and extract Allure
-          $allureVersion = "2.24.1"
-          $allureUrl = "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/$allureVersion/allure-commandline-$allureVersion.zip"
-          $allureZip = "allure.zip"
-          $allureDir = "allure-$allureVersion"
-          
-          # Create a directory for Allure
-          New-Item -ItemType Directory -Force -Path "C:\allure"
-          Set-Location "C:\allure"
-          
-          # Download and extract
-          Write-Host "Downloading Allure from $allureUrl"
-          Invoke-WebRequest -Uri $allureUrl -OutFile $allureZip
-          Expand-Archive -Path $allureZip -DestinationPath . -Force
-          
-          # Add to PATH
-          $allureBinPath = "C:\allure\$allureDir\bin"
-          Write-Host "Adding $allureBinPath to PATH"
-          $env:PATH = "$allureBinPath;" + $env:PATH
-          [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
-          
-          # Verify installation
-          Write-Host "Allure installation directory contents:"
-          Get-ChildItem -Path $allureBinPath
-          
-          # Return to original directory
-          Set-Location $env:GITHUB_WORKSPACE
-          
-          Write-Host "Allure installation completed"
-        
+          mkdir allure-history
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history.json" -OutFile "allure-history/history.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history-trend.json" -OutFile "allure-history/history-trend.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/categories-trend.json" -OutFile "allure-history/categories-trend.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/duration-trend.json" -OutFile "allure-history/duration-trend.json"
+          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/retry-trend.json" -OutFile "allure-history/retry-trend.json"
+
       - name: Run Tests
         shell: pwsh
         run: |
-          $env:ALLURE_RESULTS_DIRECTORY="$pwd\allure-results"
-          New-Item -ItemType Directory -Force -Path "allure-results"
-          
-          Write-Host "Test DLLs search path: .\**\bin\Debug"
+          $nunitPath = "packages\NUnit.ConsoleRunner.3.16.3\tools\nunit3-console.exe"
           $testDlls = Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }
-          
-          Write-Host "Found test DLLs:"
-          $testDlls | ForEach-Object { Write-Host $_.FullName }
-          
-          $nunitPath = Resolve-Path "packages/NUnit.ConsoleRunner.*/tools/nunit3-console.exe"
-          Write-Host "NUnit Console path: $nunitPath"
           
           foreach ($dll in $testDlls) {
               Write-Host "Running tests in: $($dll.FullName)"
@@ -165,14 +83,8 @@ jobs:
           }
 
           Write-Host "Contents of allure-results directory:"
-          Get-ChildItem "allure-results" -Recurse | ForEach-Object {
-              Write-Host $_.FullName
-              if ($_.Extension -eq ".json") {
-                  Write-Host "Content of $($_.Name):"
-                  Get-Content $_.FullName
-              }
-          }
-        
+          Get-ChildItem "allure-results" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
@@ -191,31 +103,41 @@ jobs:
 
       - name: Generate Allure Report
         if: always()
-        shell: pwsh
         run: |
-          Write-Host "Current directory: $pwd"
-          Write-Host "Current PATH: $env:PATH"
+          # Copy history if it exists
+          if (Test-Path "allure-history") {
+            Copy-Item -Path "allure-history/*" -Destination "allure-results" -Recurse -Force
+          }
           
-          Write-Host "Checking allure-results directory:"
-          Get-ChildItem "allure-results" -Recurse
+          # Generate report
+          ./allure-commandline/bin/allure generate allure-results --clean -o allure-report
           
-          Write-Host "Checking Allure installation:"
-          Get-Command allure -ErrorAction SilentlyContinue
+          # Copy report to GitHub Pages directory
+          mkdir _site
+          Copy-Item -Path "allure-report/*" -Destination "_site" -Recurse
           
-          Write-Host "Generating Allure report..."
-          & "C:\allure\allure-2.24.1\bin\allure.bat" generate allure-results -o allure-report --clean
-          
-          Write-Host "Checking generated report:"
-          Get-ChildItem "allure-report" -Recurse
+          # Preserve history for next run
+          mkdir -p _site/history
+          Copy-Item -Path "allure-report/history/*" -Destination "_site/history" -Recurse -Force
 
-      - name: Upload Allure Report
+      - name: Upload Allure report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: allure-report
-          path: allure-report
+          path: allure-report/
+          retention-days: 30
+
+      - name: Setup Pages
+        if: always()
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
 
   deploy:
+    if: always()
     needs: test
     runs-on: ubuntu-latest
     
@@ -224,35 +146,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
       
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Download Allure Report
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-report
-          path: allure-report
-
-      - name: Create gh-pages Branch
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan gh-pages
-          git rm -rf .
-          cp -r allure-report/* .
-          rm -rf allure-report
-          git add .
-          git commit -m "Deploy Allure report to GitHub Pages"
-          git push origin gh-pages --force
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-          
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4 
