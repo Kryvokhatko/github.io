@@ -29,11 +29,13 @@ jobs:
           dir
           dir .github\workflows
       
-      - name: Restore dependencies
-        run: dotnet restore CSTestFramework.sln
+      - name: Restore NuGet packages
+        run: |
+          nuget restore CSTestFramework.sln
+          dotnet restore CSTestFramework.sln --force
       
       - name: Build
-        run: dotnet build CSTestFramework.sln --configuration Release --no-restore
+        run: dotnet build CSTestFramework.sln --configuration Release
       
       - name: Setup Java for Allure
         uses: actions/setup-java@v3
@@ -59,7 +61,7 @@ jobs:
       # Run API tests with separate process
       - name: Run API Tests
         run: |
-          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
+          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
         continue-on-error: true
       
       # Wait a moment before running UI tests to ensure resources are released
@@ -69,7 +71,7 @@ jobs:
       # Run UI tests with separate process
       - name: Run UI Tests
         run: |
-          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
+          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
         continue-on-error: true
       
       # Collect all Allure results
