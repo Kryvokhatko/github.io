@@ -2,379 +2,124 @@ name: Test Report
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
   test:
     runs-on: windows-latest
-    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Windows SDK
-        uses: actions/setup-dotnet@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
-          dotnet-version: |
-            6.0.x
-            7.0.x
+          fetch-depth: 0
       
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Setup VSTest
-        uses: darenm/Setup-VSTest@v1
-        id: setup_vstest
-
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
-        
-      - name: Restore NuGet packages
-        run: nuget restore CSTestFramework.sln
-
-      - name: Build solution
-        run: msbuild CSTestFramework.sln /p:Configuration=Debug
-
-      - name: Download Allure CommandLine
-        shell: pwsh
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore CSTestFramework.sln
+      
+      - name: Build
+        run: dotnet build CSTestFramework.sln --configuration Release --no-restore
+      
+      - name: Setup Java for Allure
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Allure CommandLine
         run: |
-          Write-Host "Downloading Allure..."
-          Invoke-WebRequest -Uri "https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.24.1/allure-commandline-2.24.1.zip" -OutFile "allure-commandline.zip"
-          Write-Host "Extracting Allure..."
-          Expand-Archive -Path "allure-commandline.zip" -DestinationPath .
-          Move-Item -Path "allure-2.24.1" -Destination "allure-commandline"
-          Write-Host "Allure extracted to:"
-          Get-ChildItem "allure-commandline" -Recurse
-
-      - name: Download Allure History
+          Invoke-WebRequest -Uri "https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.zip" -OutFile "allure.zip"
+          Expand-Archive -Path "allure.zip" -DestinationPath "."
+          $env:PATH += ";$(Get-Location)\allure-2.24.0\bin"
+          echo "$env:PATH" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      
+      - name: Prepare Allure Results Directory
+        run: |
+          # Create a clean directory for Allure results
+          if (Test-Path "allure-results") { 
+            Remove-Item -Recurse -Force "allure-results" -ErrorAction SilentlyContinue
+          }
+          New-Item -ItemType Directory -Path "allure-results" -Force
+      
+      # Run API tests with separate process
+      - name: Run API Tests
+        run: |
+          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
         continue-on-error: true
+      
+      # Wait a moment before running UI tests to ensure resources are released
+      - name: Wait before UI tests
+        run: Start-Sleep -Seconds 5
+      
+      # Run UI tests with separate process
+      - name: Run UI Tests
         run: |
-          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}/allure-history"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history.json" -OutFile "${{ github.workspace }}/allure-history/history.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history-trend.json" -OutFile "${{ github.workspace }}/allure-history/history-trend.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/categories-trend.json" -OutFile "${{ github.workspace }}/allure-history/categories-trend.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/duration-trend.json" -OutFile "${{ github.workspace }}/allure-history/duration-trend.json"
-          Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/retry-trend.json" -OutFile "${{ github.workspace }}/allure-history/retry-trend.json"
-
-      - name: Run Tests
-        shell: pwsh
-        continue-on-error: true  # Allow the workflow to continue even if tests fail
-        id: run_tests
-        timeout-minutes: 15  # Set maximum runtime for the entire test step
+          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
+        continue-on-error: true
+      
+      # Collect all Allure results
+      - name: Collect Allure Results
         run: |
-          Write-Host "Current directory: $pwd"
-          Write-Host "Test assemblies:"
-          Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | 
-              Where-Object { $_.FullName -match 'bin\\Debug' } | 
-              ForEach-Object { Write-Host "  - $($_.FullName)" }
-
-          # Create and prepare Allure results directory
-          $allureResultsPath = Join-Path ${{ github.workspace }} "allure-results"
-          New-Item -ItemType Directory -Force -Path $allureResultsPath
-          Write-Host "Created Allure results directory at: $allureResultsPath"
-          
-          # Create environment.properties with proper line endings
+          # Create environment.properties file
           $envProps = @(
-              "Browser=Chrome",
-              "Browser.Version=120.0",
-              "Operating.System=$([System.Environment]::OSVersion.ToString())",
-              "Framework=CSTestFramework",
-              "Language=C#",
-              "Base.URL=https://demo.litecart.net/"
-          ) -join "`n"  # Ensure proper line endings
-          [System.IO.File]::WriteAllText(
-              (Join-Path $allureResultsPath "environment.properties"),
-              $envProps,
-              [System.Text.Encoding]::UTF8
-          )
-          Write-Host "Created environment.properties in allure-results directory"
-
-          # Create executor.json with proper formatting
-          $executor = [ordered]@{
-              name = "GitHub Actions"
-              type = "github"
-              reportName = "CSTestFramework Test Report"
-              buildOrder = "${{ github.run_number }}"
-              buildName = "Build #${{ github.run_number }}"
-              buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-              reportUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-          $executorJson = $executor | ConvertTo-Json -Depth 10
-          [System.IO.File]::WriteAllText(
-              (Join-Path $allureResultsPath "executor.json"),
-              $executorJson,
-              [System.Text.Encoding]::UTF8
-          )
-          Write-Host "Created executor.json in allure-results directory"
+            "Browser=Chrome",
+            "Browser.Version=latest",
+            "Operating.System=$([System.Environment]::OSVersion.ToString())",
+            "Framework=CSTestFramework",
+            "Language=C#",
+            "Base.URL=https://demo.litecart.net/"
+          ) -join "`n"
           
-          # Verify files were created correctly
-          Get-Content (Join-Path $allureResultsPath "environment.properties")
-          Get-Content (Join-Path $allureResultsPath "executor.json")
+          Set-Content -Path "allure-results/environment.properties" -Value $envProps -Encoding UTF8
           
-          # Copy allureConfig.json to results directory
-          Copy-Item "allureConfig.json" -Destination "$allureResultsPath/allureConfig.json"
-          Write-Host "Copied allureConfig.json to results directory"
+          # Create executor.json
+          $executor = @{
+            name = "GitHub Actions"
+            type = "github"
+            reportName = "CSTestFramework Test Report"
+            buildOrder = "${{ github.run_number }}"
+            buildName = "Build #${{ github.run_number }}"
+            buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            reportUrl = "https://kryvokhatko.github.io/github.io/"
+          } | ConvertTo-Json
           
-          # Set environment variable for Allure
-          $env:ALLURE_CONFIG = Join-Path $pwd "allureConfig.json"
-          Write-Host "Set ALLURE_CONFIG environment variable to: $env:ALLURE_CONFIG"
+          Set-Content -Path "allure-results/executor.json" -Value $executor -Encoding UTF8
           
-          # Set NUnit Console path
-          $nunitPath = Join-Path ${{ github.workspace }} "packages\NUnit.ConsoleRunner.3.20.1\tools\nunit3-console.exe"
-          Write-Host "Using NUnit Console at: $nunitPath"
-          
-          if (-not (Test-Path $nunitPath)) {
-              Write-Host "Error: NUnit Console not found at $nunitPath"
-              "tests_failed=true" >> $env:GITHUB_OUTPUT
-              exit 1
-          }
-          
-          # Find test assemblies
-          $testDlls = Get-ChildItem -Recurse -Filter "*Tests.dll" -Path ".\**\bin\Debug" | Where-Object { $_.FullName -match 'bin\\Debug' }
-          Write-Host "Found test assemblies:"
-          $testDlls | ForEach-Object { Write-Host $_.FullName }
-          
-          $testsFailed = $false
-          # Create unique result files for each test assembly
-          foreach ($dll in $testDlls) {
-              $dllName = [System.IO.Path]::GetFileNameWithoutExtension($dll.Name)
-              Write-Host "`nRunning tests in: $($dll.FullName)"
-              Write-Host "----------------------------------------`n"
-              
-              try {
-                  # Create unique result and output files for this assembly
-                  $resultFile = Join-Path $allureResultsPath "$dllName-results.xml"
-                  $outputFile = Join-Path $allureResultsPath "$dllName-console.txt"
-                  $testLogFile = Join-Path $allureResultsPath "$dllName-test.log"
-                  
-                  Write-Host "Test assembly: $dllName"
-                  Write-Host "Result file: $resultFile"
-                  Write-Host "Console output: $outputFile"
-                  Write-Host "Test log: $testLogFile`n"
-                  
-                  # Run tests directly with output redirection
-                  Write-Host "Running tests for: $($dll.FullName)"
-                  Write-Host "Results will be saved to: $resultFile"
-                  Write-Host "Console output will be saved to: $outputFile"
-                  
-                  try {
-                      # Run NUnit with a 10-minute timeout
-                      $output = & $nunitPath $dll.FullName `
-                          --where="cat!=IgnoreOnCI" `
-                          --labels=All `
-                          --trace=Verbose `
-                          --result="$resultFile;format=nunit3" `
-                          --work="$allureResultsPath" `
-                          --out="$outputFile" `
-                          --noheader `
-                          --timeout=600000 2>&1
-                      
-                      $exitCode = $LASTEXITCODE
-                      
-                      # Save any error output
-                      if ($output) {
-                          $output | Out-File -FilePath $testLogFile -Encoding UTF8
-                      }
-                      
-                      Write-Host "Test execution completed with exit code: $exitCode"
-                  }
-                  catch {
-                      Write-Host "Error executing tests: $_"
-                      $exitCode = 1
-                      $_ | Out-File -FilePath $testLogFile -Append -Encoding UTF8
-                  }
-                  
-                                      if ($exitCode -ne 0) {
-                      Write-Host "Warning: Tests in $dllName failed with exit code $exitCode"
-                      
-                      # Show error details if available
-                      if (Test-Path $testLogFile) {
-                          Write-Host "`nTest Error Log:"
-                          Write-Host "---------------"
-                          Get-Content $testLogFile
-                      }
-                      
-                      if (Test-Path $outputFile) {
-                          Write-Host "`nTest Console Output:"
-                          Write-Host "------------------"
-                          Get-Content $outputFile
-                      }
-                      
-                      $testsFailed = $true
-                    }
-                    else {
-                      Write-Host "Tests completed successfully for $dllName"
-                      
-                      # Show test output even on success
-                      if (Test-Path $outputFile) {
-                          Write-Host "`nTest Console Output:"
-                          Write-Host "------------------"
-                          Get-Content $outputFile
-                      }
-                    }
-              }
-              catch {
-                  Write-Host "Error running tests in $dllName"
-                  Write-Host "Exception: $_"
-                  Write-Host "Stack Trace: $($_.Exception.StackTrace)"
-                  $testsFailed = $true
-              }
-              Write-Host "`n========================================`n"
-          }
-
-          # Combine all test results into a single Allure-compatible file
-          Write-Host "`nProcessing Test Results:"
-          Write-Host "=====================`n"
-          
-          # Get all result files
-          $resultFiles = Get-ChildItem $allureResultsPath -Filter "*-results.xml"
-          if ($resultFiles.Count -gt 0) {
-              Write-Host "Found $($resultFiles.Count) test result files"
-              
-              # Combine results into a single file
-              $combinedResultPath = Join-Path $allureResultsPath "combined-results.xml"
-              $firstFile = $true
-              
-              foreach ($resultFile in $resultFiles) {
-                  Write-Host "Processing: $($resultFile.Name)"
-                  $content = Get-Content $resultFile.FullName
-                  
-                  if ($firstFile) {
-                      Set-Content -Path $combinedResultPath -Value $content
-                      $firstFile = $false
-                  }
-                  else {
-                      # Append test cases to combined file
-                      $xml = [xml](Get-Content $resultFile.FullName)
-                      $testCases = $xml.SelectNodes("//test-case")
-                      Add-Content -Path $combinedResultPath -Value $testCases.OuterXml
-                  }
-              }
-              
-              Write-Host "Combined results saved to: $combinedResultPath"
-          }
-          else {
-              Write-Host "Warning: No test result files found"
-          }
-          
-          Write-Host "`nTest Run Summary:"
-          Write-Host "=================="
-          
-          # Process each test assembly's results
-          Get-ChildItem $allureResultsPath -Filter "*-results.xml" | ForEach-Object {
-              $assemblyName = $_.BaseName -replace '-results$',''
-              Write-Host "`nAssembly: $assemblyName"
-              Write-Host "------------------------"
-              
-              # Show test log if exists
-              $logFile = Join-Path $allureResultsPath "$assemblyName-test.log"
-              if (Test-Path $logFile) {
-                  Write-Host "Test Log:"
-                  Get-Content $logFile | ForEach-Object { Write-Host "  $_" }
-              }
-              
-              # Show console output if exists
-              $outputFile = Join-Path $allureResultsPath "$assemblyName-console.txt"
-              if (Test-Path $outputFile) {
-                  Write-Host "`nConsole Output:"
-                  Get-Content $outputFile | ForEach-Object { Write-Host "  $_" }
-              }
-          }
-          
-          Write-Host "`nAllure Results Directory Contents:"
-          Write-Host "================================"
-          Get-ChildItem $allureResultsPath -Recurse | ForEach-Object { 
-              Write-Host $_.FullName
-          }
-
-          # Set output using environment file
-          if ($testsFailed) {
-              "tests_failed=true" >> $env:GITHUB_OUTPUT
-              exit 1  # Signal failure but allow continue-on-error to proceed
-          } else {
-              "tests_failed=false" >> $env:GITHUB_OUTPUT
-          }
-
-      - name: Upload Allure results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: allure-results
-          path: allure-results/
-          retention-days: 30
-
+          # Copy any test results to the allure-results directory
+          Get-ChildItem -Path "API.Tests" -Recurse -Filter "allure-results" | 
+            ForEach-Object {
+              Copy-Item -Path "$($_.FullName)\*" -Destination "allure-results\" -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            
+          Get-ChildItem -Path "UI.Tests" -Recurse -Filter "allure-results" | 
+            ForEach-Object {
+              Copy-Item -Path "$($_.FullName)\*" -Destination "allure-results\" -Recurse -Force -ErrorAction SilentlyContinue
+            }
+      
       - name: Generate Allure Report
-        if: always()
-        shell: pwsh
         run: |
-          Write-Host "Current directory structure:"
-          Get-ChildItem -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-          # Create directories
-          New-Item -ItemType Directory -Force -Path "_site"
-          New-Item -ItemType Directory -Force -Path "allure-results"
-          New-Item -ItemType Directory -Force -Path "_site/history"
-
-          # Copy history if it exists
-          if (Test-Path "allure-history") {
-            Write-Host "Copying history files..."
-            Copy-Item -Path "allure-history/*" -Destination "allure-results" -Recurse -Force
-          }
-          
-          # Generate report
-          Write-Host "Generating Allure report..."
-          $allureCmd = Join-Path -Path $pwd -ChildPath "allure-commandline\bin\allure.bat"
-          Write-Host "Allure command path: $allureCmd"
-          & $allureCmd generate allure-results --clean -o allure-report
-          
-          # Copy report to GitHub Pages directory
-          Write-Host "Copying report to _site directory..."
-          Copy-Item -Path "allure-report/*" -Destination "_site" -Recurse -Force
-          
-          # Preserve history for next run
-          Write-Host "Preserving history..."
-          if (Test-Path "allure-report/history") {
-            Copy-Item -Path "allure-report/history/*" -Destination "_site/history" -Recurse -Force
-          }
-
-          Write-Host "Final _site directory contents:"
-          Get-ChildItem "_site" -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-      - name: Upload Allure report
-        uses: actions/upload-artifact@v4
-        if: always()
+          allure generate allure-results --clean -o allure-report
+      
+      - name: Upload Allure Report as Artifact
+        uses: actions/upload-artifact@v3
         with:
           name: allure-report
           path: allure-report/
           retention-days: 30
-
-      - name: Setup Pages
-        if: always()
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages artifact
-        if: always()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    if: always()
-    needs: test
-    runs-on: ubuntu-latest
-    
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
       
-    steps:
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4 
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: allure-report
+          branch: gh-pages
+          clean: true 

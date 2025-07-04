@@ -5,13 +5,14 @@ using System.Text;
 using System.Threading.Tasks;
 using Allure.NUnit.Attributes;
 using NUnit.Framework;
+using CSTestFramework.Core.Reporting;
 
 namespace API.Tests.Tests
 {
     [TestFixture]
     [AllureSuite("Empty API Tests")]
     [AllureFeature("For presentation purposes only")]
-    public class EmptyAPITests
+    public class EmptyAPITests : ApiTestBase
     {
         [Test]
         [AllureStory("Successful Order")]
@@ -19,10 +20,22 @@ namespace API.Tests.Tests
         [AllureTag("Smoke", "API")]
         [AllureOwner("QA Team")]
         [Description("Empty test for API presentation.")]
+        public void EmptyTest()
+        {
+            AllureStepHelper.ExecuteStep("Step 1: Initialize API Client", () =>
+            {
+                Logger.Debug("API client initialized");
+            });
 
-        public void EmpryTest()
-        { 
-            //
+            AllureStepHelper.ExecuteStep("Step 2: Make API Call", () =>
+            {
+                Logger.Debug("API call completed successfully");
+            });
+
+            AllureStepHelper.ExecuteStep("Step 3: Verify Response", () =>
+            {
+                Assert.Pass("API test completed successfully");
+            });
         }
     }
 }

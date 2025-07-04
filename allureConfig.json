@@ -1,60 +1,68 @@
 {
+  "$schema": "https://raw.githubusercontent.com/allure-framework/allure-csharp/2.12.1/Allure.Net.Commons/Schemas/allureConfig.schema.json",
   "allure": {
     "directory": "allure-results",
+    "title": "CSTestFramework Test Report",
     "links": [
       {
         "type": "issue",
-        "urlTemplate": "https://example.com/issues/{}"
+        "urlTemplate": "https://github.com/Kryvokhatko/github.io/issues/{}",
+        "pattern": "GH-\\d+"
       },
       {
         "type": "tms",
-        "urlTemplate": "https://example.com/test-cases/{}"
+        "urlTemplate": "https://github.com/Kryvokhatko/github.io/issues/{}",
+        "pattern": "TC-\\d+"
       }
     ],
+    "brokenTestData": {
+      "pattern": "System\\..*Exception",
+      "message": "Test execution failed due to an unexpected error"
+    },
     "categories": [
       {
         "name": "Failed tests",
+        "messageRegex": ".*",
         "matchedStatuses": ["failed"]
       },
       {
         "name": "Broken tests",
+        "traceRegex": ".*",
         "matchedStatuses": ["broken"]
       },
       {
         "name": "Ignored tests",
+        "messageRegex": ".*",
         "matchedStatuses": ["skipped"]
       },
       {
-        "name": "Unknown tests",
-        "matchedStatuses": ["unknown"]
+        "name": "Passed tests",
+        "messageRegex": ".*",
+        "matchedStatuses": ["passed"]
       }
     ],
     "executors": [
       {
-        "name": "CSTestFramework",
-        "type": "nunit",
-        "url": "https://github.com/your-org/CSTestFramework",
-        "buildOrder": 1,
-        "buildName": "CSTestFramework Build",
-        "buildUrl": "https://ci.example.com/builds/123",
-        "reportUrl": "https://reports.example.com/allure/123",
-        "reportName": "CSTestFramework Allure Report"
+        "name": "GitHub Actions",
+        "type": "github",
+        "url": "https://github.com/Kryvokhatko/github.io",
+        "reportUrl": "https://kryvokhatko.github.io/github.io/"
       }
     ],
     "environment": {
       "Browser": "Chrome",
-      "Browser.Version": "120.0",
+      "Browser.Version": "latest",
       "Stand": "Production",
       "OS": "Windows",
-      "OS.Version": "10.0.19045"
+      "Framework": "CSTestFramework",
+      "Language": "C#"
     },
     "attachments": {
       "maxSize": 10485760
     },
     "report": {
       "title": "CSTestFramework Test Report",
-      "description": "Comprehensive test automation framework report",
-      "logo": "https://example.com/logo.png",
+      "description": "Automated test results for CSTestFramework",
       "theme": "default"
     }
   }
