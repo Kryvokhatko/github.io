@@ -15,14 +15,19 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.x'
+      
+      - name: List directory contents
+        run: |
+          dir
+          dir .github\workflows
       
       - name: Restore dependencies
         run: dotnet restore CSTestFramework.sln

@@ -10,6 +10,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
 using Allure.Net.Commons;
 using CSTestFramework.Core.Configuration.Models;
+using CSTestFramework.Core.Configuration;
 
 namespace CSTestFramework.Core.Reporting
 {
@@ -258,26 +259,36 @@ Language={info.Language}";
 
             try
             {
-                _logger.Debug("Allure results available at: {Directory}", _resultsDirectory);
+                _logger.Debug("Generating Allure report from results in: {Directory}", _resultsDirectory);
+                
+                // The actual report generation would typically be handled by the Allure CLI
+                // This method is primarily a placeholder for any pre/post processing
+                
+                _logger.Debug("Allure report generation complete");
             }
             catch (Exception ex)
             {
                 _logger.Debug(ex, "Failed to generate Allure report");
+                throw;
             }
         }
 
         /// <summary>
-        /// Cleans up Allure resources.
+        /// Cleans up resources used by the Allure manager.
         /// </summary>
         public static void Dispose()
         {
-            if (_isInitialized)
-            {
-                _isInitialized = false;
-                _logger?.Debug("Allure reporting disposed");
-            }
+            _isInitialized = false;
+            _logger = null;
+            _loggingConfig = null;
+            _resultsDirectory = null;
         }
 
+        /// <summary>
+        /// Builds environment information for the Allure report based on the current test environment.
+        /// </summary>
+        /// <param name="driver">The WebDriver instance, if available.</param>
+        /// <returns>The environment information.</returns>
         public static AllureEnvironmentInfo BuildEnvironmentInfo(IWebDriver driver = null)
         {
             var info = new AllureEnvironmentInfo
@@ -285,14 +296,18 @@ Language={info.Language}";
                 OperatingSystem = Environment.OSVersion.ToString(),
                 Framework = "CSTestFramework",
                 Language = "C#",
-                BaseUrl = Configuration.ConfigurationManager.Instance.AppSettings.Ui.ApplicationUrl
+                BaseUrl = ConfigurationManager.Instance.AppSettings.Ui.ApplicationUrl
             };
 
-            if (driver != null && driver is OpenQA.Selenium.Remote.RemoteWebDriver remoteDriver)
+            if (driver != null)
             {
-                info.Browser = remoteDriver.Capabilities.GetCapability("browserName")?.ToString();
-                info.BrowserVersion = remoteDriver.Capabilities.GetCapability("browserVersion")?.ToString() 
-                    ?? remoteDriver.Capabilities.GetCapability("version")?.ToString();
+                info.Browser = driver.GetType().Name.Replace("Driver", "");
+                
+                if (driver is RemoteWebDriver remoteDriver)
+                {
+                    info.BrowserVersion = remoteDriver.Capabilities.GetCapability("browserVersion") as string
+                        ?? remoteDriver.Capabilities.GetCapability("version") as string;
+                }
             }
 
             return info;
