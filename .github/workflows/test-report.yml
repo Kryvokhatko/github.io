@@ -282,7 +282,22 @@ jobs:
           Write-Host "Searching for allure-results directories..."
           $allureResultsDirs = Get-ChildItem -Path "." -Recurse -Filter "allure-results" -Directory -ErrorAction SilentlyContinue
           
+          # Get the full path of the main allure-results directory
+          $mainAllureResultsPath = $null
+          try {
+            $mainAllureResultsPath = (Resolve-Path "allure-results" -ErrorAction SilentlyContinue).Path
+            Write-Host "Main allure-results directory: $mainAllureResultsPath"
+          } catch {
+            Write-Host "Main allure-results directory not found, will be created"
+          }
+          
           foreach ($dir in $allureResultsDirs) {
+            # Skip the main allure-results directory to avoid copying files to themselves
+            if ($mainAllureResultsPath -and $dir.FullName -eq $mainAllureResultsPath) {
+              Write-Host "Skipping main allure-results directory: $($dir.FullName)"
+              continue
+            }
+            
             Write-Host "Found allure-results at: $($dir.FullName)"
             # Copy all files from each found directory
             Get-ChildItem -Path $dir.FullName -File | ForEach-Object {
@@ -294,14 +309,32 @@ jobs:
           # Copy any test results to the allure-results directory
           Get-ChildItem -Path "API.Tests" -Recurse -Filter "allure-results" | 
             ForEach-Object {
+              # Skip the main allure-results directory
+              if ($mainAllureResultsPath -and $_.FullName -eq $mainAllureResultsPath) {
+                Write-Host "Skipping main allure-results directory: $($_.FullName)"
+                return
+              }
+              
               Write-Host "Copying API test results from $($_.FullName)"
-              Copy-Item -Path "$($_.FullName)\*" -Destination "allure-results\" -Recurse -Force -ErrorAction SilentlyContinue
+              Get-ChildItem -Path "$($_.FullName)" -File | ForEach-Object {
+                Write-Host "Copying $($_.Name) to main allure-results directory"
+                Copy-Item -Path $_.FullName -Destination "allure-results\" -Force
+              }
             }
             
           Get-ChildItem -Path "UI.Tests" -Recurse -Filter "allure-results" | 
             ForEach-Object {
+              # Skip the main allure-results directory
+              if ($mainAllureResultsPath -and $_.FullName -eq $mainAllureResultsPath) {
+                Write-Host "Skipping main allure-results directory: $($_.FullName)"
+                return
+              }
+              
               Write-Host "Copying UI test results from $($_.FullName)"
-              Copy-Item -Path "$($_.FullName)\*" -Destination "allure-results\" -Recurse -Force -ErrorAction SilentlyContinue
+              Get-ChildItem -Path "$($_.FullName)" -File | ForEach-Object {
+                Write-Host "Copying $($_.Name) to main allure-results directory"
+                Copy-Item -Path $_.FullName -Destination "allure-results\" -Force
+              }
             }
           
           # Create environment.properties file AFTER copying test results to ensure it's not overwritten
