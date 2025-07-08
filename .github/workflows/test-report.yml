@@ -103,8 +103,7 @@ jobs:
           $executor = @{
             name = "GitHub Actions"
             type = "github"
-            reportName = "CSTestFramework Test Report"
-            buildOrder = "${{ github.run_number }}"
+            reportName = "CSTestFramework Automation Report"
             buildName = "Build #${{ github.run_number }}"
             buildUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             reportUrl = "https://kryvokhatko.github.io/github.io/"
@@ -137,6 +136,36 @@ jobs:
           Write-Host $envProps
           
           Set-Content -Path "allure-results/environment.properties" -Value $envProps -Encoding UTF8
+          
+          # Create categories.json for test result categorization
+          $categoriesArray = @(
+            @{
+              name = "Ignored tests"
+              matchedStatuses = @("skipped")
+            },
+            @{
+              name = "Infrastructure problems"
+              matchedStatuses = @("broken", "failed")
+              messageRegex = ".*System\\..*Exception.*"
+            },
+            @{
+              name = "Element interaction failures"
+              matchedStatuses = @("broken")
+              messageRegex = ".*Element.*not.*found.*"
+            },
+            @{
+              name = "Product defects"
+              matchedStatuses = @("failed")
+            },
+            @{
+              name = "Test defects"
+              matchedStatuses = @("broken")
+            }
+          )
+          
+          $categoriesJson = ConvertTo-Json -InputObject $categoriesArray -Depth 3
+          Set-Content -Path "allure-results/categories.json" -Value $categoriesJson -Encoding UTF8
+          Write-Host "Created categories.json file"
             
           # Verify environment.properties exists in the results directory
           if (Test-Path "allure-results/environment.properties") {
@@ -178,6 +207,25 @@ jobs:
           name: allure-report
           path: allure-report
 
+      # Download previous history if available
+      - name: Download Allure history
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-history
+          path: allure-history
+        continue-on-error: true
+
+      # Prepare history directory
+      - name: Prepare Allure history
+        run: |
+          if [ -d "allure-history" ] && [ -d "allure-history/history" ]; then
+            echo "Previous history found, copying to report"
+            mkdir -p allure-report/history
+            cp -r allure-history/history/* allure-report/history/ || true
+          else
+            echo "No previous history found"
+          fi
+
       - name: Verify Allure Report Directory
         run: |
           # Check if the directory exists and has content
@@ -197,4 +245,12 @@ jobs:
           clean: true
           single-commit: true
           commit-message: "Deploy Allure report from GitHub Actions build ${{ github.run_number }}"
-          force: true 
+          force: true
+      
+      # Save history for next run
+      - name: Save Allure history
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-history
+          path: allure-report/history
+          retention-days: 30 
