@@ -301,6 +301,10 @@ jobs:
       # Ensure executor.json is properly set
       - name: Update executor information
         run: |
+          # First, let's examine the structure to understand what files need to be modified
+          echo "Examining Allure report structure..."
+          find allure-report -type f -name "*.js" -o -name "*.json" -o -name "*.html" | xargs grep -l "unknown" || true
+          
           # Create a complete report-data.json file
           mkdir -p allure-report/data
           cat > allure-report/data/report-data.json << EOF
@@ -318,7 +322,83 @@ jobs:
             "reportVersion": "1.0"
           }
           EOF
-
+          
+          # More aggressive approach to fix the title in index.html
+          if [ -f "allure-report/index.html" ]; then
+            echo "Fixing title in index.html"
+            # Replace the title line completely
+            sed -i 's|<title>Allure Report</title>|<title>CSTestFramework Automation Report</title>|g' allure-report/index.html
+            # Try to find and replace the unknown subtitle
+            sed -i 's|unknown - unknown (Unknown)||g' allure-report/index.html
+            # Another possible format
+            sed -i 's|UNKNOWN - UNKNOWN (UNKNOWN)||g' allure-report/index.html
+            
+            # Try to directly modify the HTML structure to remove the subtitle element
+            echo "Attempting to modify HTML structure to remove subtitle..."
+            
+            # Remove the subtitle div if it exists
+            sed -i 's|<div class="side-nav__brand-subtitle">.*</div>||g' allure-report/index.html
+            
+            # Create a custom CSS to hide the subtitle
+            echo "<style>.side-nav__brand-subtitle { display: none !important; }</style>" >> allure-report/index.html
+          fi
+          
+          # Fix app.js which likely contains the subtitle logic
+          if [ -f "allure-report/app.js" ]; then
+            echo "Fixing app.js"
+            # Try to find and replace various patterns that might be causing the issue
+            sed -i 's|reportName+".*unknown.*"|reportName+""|g' allure-report/app.js || true
+            sed -i 's|reportName+" - "+.*unknown.*|reportName+""|g' allure-report/app.js || true
+            sed -i 's|unknown - unknown (Unknown)||g' allure-report/app.js || true
+            
+            # Add project information directly
+            echo "
+            window.allure = window.allure || {};
+            window.allure.project = {
+              name: 'CSTestFramework',
+              version: '1.0'
+            };
+            // Override the title rendering function if it exists
+            if (window.allure.getReportName) {
+              window.allure.getReportName = function() {
+                return 'CSTestFramework Automation Report';
+              };
+            }
+            " >> allure-report/app.js
+          fi
+          
+          # Fix bundle.js which might contain the subtitle logic
+          if [ -f "allure-report/plugins/screen-diff/styles.css" ]; then
+            echo "Adding custom CSS to hide subtitle"
+            echo ".side-nav__brand-subtitle { display: none !important; }" >> allure-report/plugins/screen-diff/styles.css
+          fi
+          
+          if [ -f "allure-report/bundle.js" ]; then
+            echo "Fixing bundle.js"
+            # Try to find and replace various patterns that might be causing the issue
+            sed -i 's|unknown - unknown (Unknown)||g' allure-report/bundle.js || true
+            sed -i 's|"unknown"|""|g' allure-report/bundle.js || true
+            sed -i 's|subtitle:"unknown"|subtitle:""|g' allure-report/bundle.js || true
+            sed -i 's|subtitle:"unknown (Unknown)"|subtitle:""|g' allure-report/bundle.js || true
+          fi
+          
+          # Create a custom CSS file to hide the subtitle
+          echo "Creating custom CSS to hide subtitle"
+          mkdir -p allure-report/styles
+          cat > allure-report/styles/custom.css << EOF
+          .side-nav__brand-subtitle {
+            display: none !important;
+          }
+          EOF
+          
+          # Add the custom CSS to the index.html
+          if [ -f "allure-report/index.html" ]; then
+            echo "Adding custom CSS to index.html"
+            sed -i 's|</head>|<link rel="stylesheet" href="styles/custom.css">\n</head>|' allure-report/index.html
+          fi
+          
+          # Create widgets files
+          mkdir -p allure-report/widgets
           cat > allure-report/widgets/summary.json << EOF
           {
             "reportName": "CSTestFramework Automation Report",
@@ -362,28 +442,7 @@ jobs:
           }
           EOF
           
-          # Update index.html to remove unknown subtitle if it exists
-          if [ -f "allure-report/index.html" ]; then
-            echo "Updating index.html to fix unknown subtitle"
-            sed -i 's/unknown - unknown (Unknown)//g' allure-report/index.html || true
-          fi
-          
-          # Update app.js to fix the unknown subtitle issue
-          if [ -f "allure-report/app.js" ]; then
-            echo "Updating app.js to fix unknown subtitle"
-            # Replace any instances of unknown subtitle in the JavaScript
-            sed -i 's/unknown - unknown (Unknown)//g' allure-report/app.js || true
-            # Add project information to the app.js file
-            echo "
-            window.allure = window.allure || {};
-            window.allure.project = {
-              name: 'CSTestFramework',
-              version: '1.0'
-            };" >> allure-report/app.js
-          fi
-          
           # Create behaviors.json with project information
-          mkdir -p allure-report/widgets
           cat > allure-report/widgets/behaviors.json << EOF
           {
             "total" : 0,
