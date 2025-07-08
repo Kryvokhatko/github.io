@@ -298,6 +298,65 @@ jobs:
             exit 1
           fi
       
+      # Ensure executor.json is properly set
+      - name: Update executor information
+        run: |
+          cat > allure-report/widgets/summary.json << EOF
+          {
+            "reportName": "CSTestFramework Automation Report",
+            "testRuns": [],
+            "statistic": {
+              "failed": 0,
+              "broken": 0,
+              "skipped": 0,
+              "passed": 0,
+              "unknown": 0,
+              "total": 0
+            },
+            "time": {}
+          }
+          EOF
+          
+          cat > allure-report/widgets/executors.json << EOF
+          {
+            "total" : 1,
+            "items" : [ {
+              "name" : "GitHub Actions",
+              "type" : "github",
+              "url" : "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "buildOrder" : ${{ github.run_number }},
+              "buildName" : "Build #${{ github.run_number }}",
+              "reportName" : "CSTestFramework Automation Report",
+              "reportUrl" : "https://kryvokhatko.github.io/github.io/"
+            } ]
+          }
+          EOF
+          
+          # Also create executor.json in the root directory
+          cat > allure-report/executor.json << EOF
+          {
+            "name" : "GitHub Actions",
+            "type" : "github",
+            "reportName" : "CSTestFramework Automation Report",
+            "buildName" : "Build #${{ github.run_number }}",
+            "buildUrl" : "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "reportUrl" : "https://kryvokhatko.github.io/github.io/"
+          }
+          EOF
+          
+          # Update report-data.json if it exists
+          if [ -f "allure-report/data/report-data.json" ]; then
+            echo "Updating report-data.json"
+            # Use jq if available, otherwise use sed
+            if command -v jq &> /dev/null; then
+              jq '.reportName = "CSTestFramework Automation Report"' allure-report/data/report-data.json > temp.json && mv temp.json allure-report/data/report-data.json
+            else
+              sed -i 's/"reportName":[^,]*/"reportName": "CSTestFramework Automation Report"/g' allure-report/data/report-data.json
+            fi
+          fi
+          
+          echo "Updated executor information"
+      
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
