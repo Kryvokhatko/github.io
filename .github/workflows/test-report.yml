@@ -298,6 +298,35 @@ jobs:
             exit 1
           fi
       
+      # Direct HTML modification to remove subtitle
+      - name: Direct HTML modification
+        run: |
+          if [ -f "allure-report/index.html" ]; then
+            echo "Performing direct HTML modification to remove subtitle"
+            
+            # Create a temporary file to hold the modified HTML
+            cat allure-report/index.html > temp.html
+            
+            # Use awk to process the HTML file and remove the subtitle div
+            awk '
+            {
+              # Skip printing lines containing the subtitle
+              if (index($0, "side-nav__brand-subtitle") > 0) {
+                next;
+              }
+              # Print all other lines
+              print;
+            }' temp.html > allure-report/index.html
+            
+            # Clean up
+            rm temp.html
+            
+            # Replace the entire brand section with a custom one
+            sed -i 's|<div class="side-nav__brand">.*<div class="side-nav__brand-text">.*</div>.*</div>|<div class="side-nav__brand"><div class="side-nav__brand-text">CSTESTFRAMEWORK AUTOMATION REPORT</div></div>|g' allure-report/index.html
+            
+            echo "Direct HTML modification completed"
+          fi
+      
       # Ensure executor.json is properly set
       - name: Update executor information
         run: |
@@ -322,6 +351,40 @@ jobs:
             "reportVersion": "1.0"
           }
           EOF
+          
+          # Create a custom plugin to override the subtitle
+          mkdir -p allure-report/plugins/custom-subtitle-fix
+          cat > allure-report/plugins/custom-subtitle-fix/index.js << EOF
+          (function() {
+            var oldGetReportName = window.allure.getReportName;
+            window.allure.getReportName = function() {
+              return "CSTestFramework Automation Report";
+            };
+            
+            // Override the subtitle getter if it exists
+            if (window.allure.getReportSubtitle) {
+              window.allure.getReportSubtitle = function() {
+                return "";
+              };
+            }
+            
+            // Add CSS to hide subtitle
+            var style = document.createElement('style');
+            style.type = 'text/css';
+            style.innerHTML = '.side-nav__brand-subtitle { display: none !important; }';
+            document.getElementsByTagName('head')[0].appendChild(style);
+          })();
+          EOF
+          
+          # Add the custom plugin to the index.html
+          if [ -f "allure-report/index.html" ]; then
+            echo "Adding custom plugin to index.html"
+            sed -i 's|</body>|<script src="plugins/custom-subtitle-fix/index.js"></script>\n</body>|' allure-report/index.html
+            
+            # Also add a script to the head that will run before Allure loads
+            echo "Adding early script to override subtitle"
+            sed -i 's|<head>|<head>\n<script>\nwindow.allureSubtitleOverride = true;\nObject.defineProperty(window, "allure", {\n  get: function() { return this._allure; },\n  set: function(val) {\n    if (val && typeof val === "object") {\n      if (val.getReportSubtitle) {\n        val.getReportSubtitle = function() { return ""; };\n      }\n    }\n    this._allure = val;\n  }\n});\n</script>|' allure-report/index.html
+          fi
           
           # More aggressive approach to fix the title in index.html
           if [ -f "allure-report/index.html" ]; then

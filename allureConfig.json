@@ -2,18 +2,9 @@
   "$schema": "https://raw.githubusercontent.com/allure-framework/allure-csharp/2.12.1/Allure.Net.Commons/Schemas/allureConfig.schema.json",
   "allure": {
     "directory": "allure-results",
-    "title": "CSTestFramework Test Report",
+    "title": "CSTestFramework Automation Report",
     "links": [
-      {
-        "type": "issue",
-        "urlTemplate": "https://github.com/Kryvokhatko/github.io/issues/{}",
-        "pattern": "GH-\\d+"
-      },
-      {
-        "type": "tms",
-        "urlTemplate": "https://github.com/Kryvokhatko/github.io/issues/{}",
-        "pattern": "TC-\\d+"
-      }
+      "https://github.com/kryvokhatko/github.io"
     ],
     "brokenTestData": {
       "pattern": "System\\..*Exception",
@@ -65,5 +56,39 @@
       "description": "Automated test results for CSTestFramework",
       "theme": "default"
     }
-  }
+  },
+  "specflow": {
+    "stepArguments": {
+      "convertToParameters": true,
+      "paramNameRegex": "",
+      "paramValueRegex": ""
+    },
+    "grouping": {
+      "suites": {
+        "parentSuite": "^parentSuite:?(.+)",
+        "suite": "^suite:?(.+)",
+        "subSuite": "^subSuite:?(.+)"
+      },
+      "behaviors": {
+        "epic": "^epic:?(.+)",
+        "story": "^story:?(.+)"
+      },
+      "packages": {
+        "package": "^package:?(.+)",
+        "testClass": "^class:?(.+)",
+        "testMethod": "^method:?(.+)"
+      }
+    },
+    "labels": {
+      "owner": "^owner:?(.+)",
+      "severity": "^(normal|blocker|critical|minor|trivial)"
+    },
+    "links": {
+      "issue": "^issue:(\\d+)",
+      "tms": "^tms:(\\d+)"
+    }
+  },
+  "projectName": "CSTestFramework",
+  "projectVersion": "1.0",
+  "language": "C#"
 } 
