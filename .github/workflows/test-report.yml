@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  build-and-test:
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -123,17 +123,30 @@ jobs:
           name: allure-report
           path: allure-report/
           retention-days: 30
-      
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Allure Report
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report
+
       - name: Verify Allure Report Directory
         run: |
           # Check if the directory exists and has content
-          if (Test-Path "allure-report") {
-            Write-Host "Allure report directory exists"
-            Get-ChildItem -Path "allure-report" -Recurse | Measure-Object | Select-Object -ExpandProperty Count
-          } else {
-            Write-Host "Allure report directory does not exist"
+          if [ -d "allure-report" ]; then
+            echo "Allure report directory exists"
+            find allure-report -type f | wc -l
+          else
+            echo "Allure report directory does not exist"
             exit 1
-          }
+          fi
       
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
