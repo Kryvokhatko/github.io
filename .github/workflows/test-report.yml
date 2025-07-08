@@ -253,24 +253,38 @@ jobs:
           name: allure-report
           path: allure-report
 
-      # Download previous history if available
-      - name: Download Allure history
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-history
-          path: allure-history
+      # Try to download history from the gh-pages branch if it exists
+      - name: Try to get history from gh-pages branch
+        id: get_history
         continue-on-error: true
+        run: |
+          mkdir -p allure-history
+          git fetch origin gh-pages --depth=1 || echo "No gh-pages branch found"
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            echo "Found gh-pages branch, checking for history"
+            git checkout origin/gh-pages -- history || echo "No history directory in gh-pages branch"
+            if [ -d "history" ]; then
+              echo "History directory found, copying to allure-history"
+              cp -r history allure-history/ || true
+              echo "history_found=true" >> $GITHUB_OUTPUT
+            else
+              echo "No history directory found in gh-pages branch"
+              echo "history_found=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No gh-pages branch found"
+            echo "history_found=false" >> $GITHUB_OUTPUT
+          fi
 
       # Prepare history directory
       - name: Prepare Allure history
         run: |
-          if [ -d "allure-history" ] && [ -d "allure-history/history" ]; then
+          mkdir -p allure-report/history
+          if [ -d "allure-history/history" ] && [ "$(ls -A allure-history/history 2>/dev/null)" ]; then
             echo "Previous history found, copying to report"
-            mkdir -p allure-report/history
             cp -r allure-history/history/* allure-report/history/ || true
           else
-            echo "No previous history found, creating empty history directory"
-            mkdir -p allure-report/history
+            echo "No previous history found, using empty history directory"
           fi
 
       - name: Verify Allure Report Directory
