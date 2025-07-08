@@ -223,7 +223,8 @@ jobs:
             mkdir -p allure-report/history
             cp -r allure-history/history/* allure-report/history/ || true
           else
-            echo "No previous history found"
+            echo "No previous history found, creating empty history directory"
+            mkdir -p allure-report/history
           fi
 
       - name: Verify Allure Report Directory
