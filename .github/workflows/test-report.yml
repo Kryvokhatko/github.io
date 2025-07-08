@@ -137,6 +137,43 @@ jobs:
           
           Set-Content -Path "allure-results/environment.properties" -Value $envProps -Encoding UTF8
           
+          # Also create environment.xml for compatibility
+          $osVersion = [System.Environment]::OSVersion.ToString()
+          
+          # Create XML content line by line to avoid YAML parsing issues
+          $xmlLines = @()
+          $xmlLines += '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          $xmlLines += '<environment>'
+          $xmlLines += '    <parameter>'
+          $xmlLines += '        <key>Browser</key>'
+          $xmlLines += '        <value>Chrome</value>'
+          $xmlLines += '    </parameter>'
+          $xmlLines += '    <parameter>'
+          $xmlLines += '        <key>Browser.Version</key>'
+          $xmlLines += "        <value>$chromeVersionInfo</value>"
+          $xmlLines += '    </parameter>'
+          $xmlLines += '    <parameter>'
+          $xmlLines += '        <key>Operating.System</key>'
+          $xmlLines += "        <value>$osVersion</value>"
+          $xmlLines += '    </parameter>'
+          $xmlLines += '    <parameter>'
+          $xmlLines += '        <key>Framework</key>'
+          $xmlLines += "        <value>$nunitVersion</value>"
+          $xmlLines += '    </parameter>'
+          $xmlLines += '    <parameter>'
+          $xmlLines += '        <key>Language</key>'
+          $xmlLines += '        <value>C#</value>'
+          $xmlLines += '    </parameter>'
+          $xmlLines += '    <parameter>'
+          $xmlLines += '        <key>Base.URL</key>'
+          $xmlLines += '        <value>https://demo.litecart.net/</value>'
+          $xmlLines += '    </parameter>'
+          $xmlLines += '</environment>'
+          
+          $xmlContent = $xmlLines -join "`n"
+          Set-Content -Path "allure-results/environment.xml" -Value $xmlContent -Encoding UTF8
+          Write-Host "Created environment.xml file"
+          
           # Create categories.json for test result categorization
           $categoriesArray = @(
             @{
@@ -178,6 +215,15 @@ jobs:
       - name: Generate Allure Report
         run: |
           allure generate allure-results --clean -o allure-report
+          
+          # Ensure environment.xml is in the data directory
+          if (Test-Path "allure-results/environment.xml") {
+            Write-Host "Copying environment.xml to report data directory"
+            if (-not (Test-Path "allure-report/data")) {
+              New-Item -ItemType Directory -Path "allure-report/data" -Force
+            }
+            Copy-Item -Path "allure-results/environment.xml" -Destination "allure-report/data/" -Force
+          }
           
           # Verify environment.properties in the generated report
           if (Test-Path "allure-report/data/environment.xml") {
