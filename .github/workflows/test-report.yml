@@ -301,6 +301,24 @@ jobs:
       # Ensure executor.json is properly set
       - name: Update executor information
         run: |
+          # Create a complete report-data.json file
+          mkdir -p allure-report/data
+          cat > allure-report/data/report-data.json << EOF
+          {
+            "uid" : "$(date +%s%N)",
+            "name" : "CSTestFramework Automation Report",
+            "children" : [ ],
+            "befores" : [ ],
+            "afters" : [ ],
+            "links" : [ ],
+            "start" : $(date +%s%N | cut -b1-13),
+            "stop" : $(date +%s%N | cut -b1-13),
+            "reportName" : "CSTestFramework Automation Report",
+            "projectName": "CSTestFramework",
+            "reportVersion": "1.0"
+          }
+          EOF
+
           cat > allure-report/widgets/summary.json << EOF
           {
             "reportName": "CSTestFramework Automation Report",
@@ -344,16 +362,47 @@ jobs:
           }
           EOF
           
-          # Update report-data.json if it exists
-          if [ -f "allure-report/data/report-data.json" ]; then
-            echo "Updating report-data.json"
-            # Use jq if available, otherwise use sed
-            if command -v jq &> /dev/null; then
-              jq '.reportName = "CSTestFramework Automation Report"' allure-report/data/report-data.json > temp.json && mv temp.json allure-report/data/report-data.json
-            else
-              sed -i 's/"reportName":[^,]*/"reportName": "CSTestFramework Automation Report"/g' allure-report/data/report-data.json
-            fi
+          # Update index.html to remove unknown subtitle if it exists
+          if [ -f "allure-report/index.html" ]; then
+            echo "Updating index.html to fix unknown subtitle"
+            sed -i 's/unknown - unknown (Unknown)//g' allure-report/index.html || true
           fi
+          
+          # Update app.js to fix the unknown subtitle issue
+          if [ -f "allure-report/app.js" ]; then
+            echo "Updating app.js to fix unknown subtitle"
+            # Replace any instances of unknown subtitle in the JavaScript
+            sed -i 's/unknown - unknown (Unknown)//g' allure-report/app.js || true
+            # Add project information to the app.js file
+            echo "
+            window.allure = window.allure || {};
+            window.allure.project = {
+              name: 'CSTestFramework',
+              version: '1.0'
+            };" >> allure-report/app.js
+          fi
+          
+          # Create behaviors.json with project information
+          mkdir -p allure-report/widgets
+          cat > allure-report/widgets/behaviors.json << EOF
+          {
+            "total" : 0,
+            "items" : [ ],
+            "projectName": "CSTestFramework",
+            "projectVersion": "1.0"
+          }
+          EOF
+          
+          # Create project-metadata.json
+          cat > allure-report/data/project-metadata.json << EOF
+          {
+            "name": "CSTestFramework",
+            "version": "1.0",
+            "description": "C# Test Automation Framework",
+            "language": "C#",
+            "framework": "NUnit"
+          }
+          EOF
           
           echo "Updated executor information"
       
