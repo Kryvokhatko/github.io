@@ -77,12 +77,31 @@ jobs:
       # Collect all Allure results
       - name: Collect Allure Results
         run: |
+          # Get NUnit version from packages
+          $nunitVersion = (Get-ChildItem -Path "packages" -Recurse -Filter "NUnit*" | Where-Object { $_.PSIsContainer } | Select-Object -First 1).Name
+          if (-not $nunitVersion) {
+            $nunitVersion = "NUnit (version unknown)"
+          }
+          
           # Create environment.properties file
           $envProps = @(
             "Browser=Chrome",
-            "Browser.Version=latest",
+            "Browser.Version=$(& {
+              try {
+                # Try to get Chrome version using registry
+                $chromeVersion = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty '(Default)' -ErrorAction SilentlyContinue
+                if ($chromeVersion) {
+                  $version = (Get-Item $chromeVersion -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+                  if ($version) { return $version } else { return "installed (version unknown)" }
+                } else {
+                  return "installed (version unknown)"
+                }
+              } catch {
+                return "installed (version unknown)"
+              }
+            })",
             "Operating.System=$([System.Environment]::OSVersion.ToString())",
-            "Framework=CSTestFramework",
+            "Framework=$nunitVersion",
             "Language=C#",
             "Base.URL=https://demo.litecart.net/"
           ) -join "`n"
