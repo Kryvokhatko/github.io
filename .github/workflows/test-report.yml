@@ -82,31 +82,22 @@ jobs:
           if (-not $nunitVersion) {
             $nunitVersion = "NUnit (version unknown)"
           }
+          Write-Host "Found NUnit version: $nunitVersion"
           
-          # Create environment.properties file
-          $envProps = @(
-            "Browser=Chrome",
-            "Browser.Version=$(& {
-              try {
-                # Try to get Chrome version using registry
-                $chromeVersion = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty '(Default)' -ErrorAction SilentlyContinue
-                if ($chromeVersion) {
-                  $version = (Get-Item $chromeVersion -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
-                  if ($version) { return $version } else { return "installed (version unknown)" }
-                } else {
-                  return "installed (version unknown)"
-                }
-              } catch {
-                return "installed (version unknown)"
+          # Try to get Chrome version
+          $chromeVersionInfo = "unknown"
+          try {
+            $chromeExePath = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty '(Default)' -ErrorAction SilentlyContinue
+            if ($chromeExePath) {
+              $version = (Get-Item $chromeExePath -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+              if ($version) { 
+                $chromeVersionInfo = $version 
+                Write-Host "Found Chrome version: $chromeVersionInfo"
               }
-            })",
-            "Operating.System=$([System.Environment]::OSVersion.ToString())",
-            "Framework=$nunitVersion",
-            "Language=C#",
-            "Base.URL=https://demo.litecart.net/"
-          ) -join "`n"
-          
-          Set-Content -Path "allure-results/environment.properties" -Value $envProps -Encoding UTF8
+            }
+          } catch {
+            Write-Host "Error detecting Chrome version: $_"
+          }
           
           # Create executor.json
           $executor = @{
@@ -131,10 +122,41 @@ jobs:
             ForEach-Object {
               Copy-Item -Path "$($_.FullName)\*" -Destination "allure-results\" -Recurse -Force -ErrorAction SilentlyContinue
             }
+          
+          # Create environment.properties file AFTER copying test results to ensure it's not overwritten
+          $envProps = @(
+            "Browser=Chrome",
+            "Browser.Version=$chromeVersionInfo",
+            "Operating.System=$([System.Environment]::OSVersion.ToString())",
+            "Framework=$nunitVersion",
+            "Language=C#",
+            "Base.URL=https://demo.litecart.net/"
+          ) -join "`n"
+          
+          Write-Host "Writing environment properties:"
+          Write-Host $envProps
+          
+          Set-Content -Path "allure-results/environment.properties" -Value $envProps -Encoding UTF8
+            
+          # Verify environment.properties exists in the results directory
+          if (Test-Path "allure-results/environment.properties") {
+            Write-Host "environment.properties file exists in allure-results directory"
+            Get-Content "allure-results/environment.properties"
+          } else {
+            Write-Host "WARNING: environment.properties file not found in allure-results directory"
+          }
       
       - name: Generate Allure Report
         run: |
           allure generate allure-results --clean -o allure-report
+          
+          # Verify environment.properties in the generated report
+          if (Test-Path "allure-report/data/environment.xml") {
+            Write-Host "environment.xml file exists in allure-report/data directory"
+            Get-Content "allure-report/data/environment.xml"
+          } else {
+            Write-Host "WARNING: environment.xml file not found in allure-report/data directory"
+          }
       
       - name: Upload Allure Report as Artifact
         uses: actions/upload-artifact@v4
