@@ -64,15 +64,9 @@ jobs:
             Remove-Item -Recurse -Force "allure-results" -ErrorAction SilentlyContinue
           }
           New-Item -ItemType Directory -Path "allure-results" -Force
-      
-      # Setup Allure CLI
-      - name: Setup Allure
-        uses: simple-elf/allure-report-action@master
-        with:
-          allure_report: allure-report
-          allure_results: allure-results
-          allure_history: allure-history
-          keep_reports: 20
+          
+          # Create history directory
+          New-Item -ItemType Directory -Path "allure-results/history" -Force
       
       # Download Allure history from GitHub Pages
       - name: Download Allure History
@@ -86,11 +80,6 @@ jobs:
           try {
             Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history.json" -OutFile "allure-history/history.json"
             Write-Host "Successfully downloaded history.json"
-            
-            # Create history directory if it doesn't exist
-            if (-not (Test-Path "allure-results/history")) {
-              New-Item -ItemType Directory -Path "allure-results/history" -Force
-            }
             
             # Copy history to allure-results
             Copy-Item -Path "allure-history/history.json" -Destination "allure-results/history/" -Force
@@ -123,18 +112,15 @@ jobs:
           # Create allure.config file to ensure results go to the right place
           $allureConfig = @{
             allure = @{
-              directory = "allure-results"
-              title = "CSTestFramework Automation Report"
+              directory = "allure-results/api"
+              title = "CSTestFramework API Tests"
             }
           } | ConvertTo-Json -Depth 10
-          Set-Content -Path "allure.config" -Value $allureConfig
-          
-          # Copy the allure config to the test project to ensure it's used
-          Copy-Item -Path "allure.config" -Destination "API.Tests/allure.config" -Force
+          Set-Content -Path "API.Tests/allure.config" -Value $allureConfig
           
           # Run tests with NUnit console runner to ensure Allure results are generated
           Write-Host "Running API tests with NUnit console runner"
-          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed" --results-directory:"allure-results/api"
+          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
         continue-on-error: true
       
       # Wait a moment before running UI tests to ensure resources are released
@@ -144,12 +130,18 @@ jobs:
       # Run UI tests with separate process
       - name: Run UI Tests
         run: |
-          # Copy the allure config to the test project to ensure it's used
-          Copy-Item -Path "allure.config" -Destination "UI.Tests/allure.config" -Force
+          # Create allure.config file to ensure results go to the right place
+          $allureConfig = @{
+            allure = @{
+              directory = "allure-results/ui"
+              title = "CSTestFramework UI Tests"
+            }
+          } | ConvertTo-Json -Depth 10
+          Set-Content -Path "UI.Tests/allure.config" -Value $allureConfig
           
           # Run tests with NUnit console runner to ensure Allure results are generated
           Write-Host "Running UI tests with NUnit console runner"
-          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed" --results-directory:"allure-results/ui"
+          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
         continue-on-error: true
       
       # Check if test results are being generated
