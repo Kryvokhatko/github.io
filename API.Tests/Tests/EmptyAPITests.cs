@@ -6,12 +6,15 @@ using System.Threading.Tasks;
 using Allure.NUnit.Attributes;
 using NUnit.Framework;
 using CSTestFramework.Core.Reporting;
+using Allure.NUnit;
 
 namespace API.Tests.Tests
 {
     [TestFixture]
+    [AllureNUnit]
     [AllureSuite("Empty API Tests")]
-    [AllureFeature("For presentation purposes only")]
+    [AllureFeature("Feature: API for presentation purposes only")]
+    [AllureEpic("Epic: empty API tests")]
     public class EmptyAPITests : ApiTestBase
     {
         [Test]
