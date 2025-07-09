@@ -114,13 +114,30 @@ jobs:
             allure = @{
               directory = "allure-results/api"
               title = "CSTestFramework API Tests"
+              links = @(
+                @{
+                  type = "github"
+                  url = "https://github.com/kryvokhatko/CSTestFramework/issues/{}"
+                  pattern = "GH-\\d+"
+                }
+              )
             }
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "API.Tests/allure.config" -Value $allureConfig
           
           # Run tests with NUnit console runner to ensure Allure results are generated
           Write-Host "Running API tests with NUnit console runner"
-          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
+          
+          # Use NUnit3 console runner from packages directory if available
+          $nunitConsole = Get-ChildItem -Path "packages" -Recurse -Filter "nunit3-console.exe" | Select-Object -First 1
+          if ($nunitConsole) {
+            Write-Host "Using NUnit3 console runner: $($nunitConsole.FullName)"
+            & $nunitConsole.FullName "API.Tests/bin/Release/CSTestFramework.API.Tests.dll" "--work=allure-results/api"
+          } else {
+            # Fallback to dotnet test
+            Write-Host "NUnit3 console runner not found, using dotnet test"
+            dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
+          }
         continue-on-error: true
       
       # Wait a moment before running UI tests to ensure resources are released
@@ -135,13 +152,30 @@ jobs:
             allure = @{
               directory = "allure-results/ui"
               title = "CSTestFramework UI Tests"
+              links = @(
+                @{
+                  type = "github"
+                  url = "https://github.com/kryvokhatko/CSTestFramework/issues/{}"
+                  pattern = "GH-\\d+"
+                }
+              )
             }
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "UI.Tests/allure.config" -Value $allureConfig
           
           # Run tests with NUnit console runner to ensure Allure results are generated
           Write-Host "Running UI tests with NUnit console runner"
-          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
+          
+          # Use NUnit3 console runner from packages directory if available
+          $nunitConsole = Get-ChildItem -Path "packages" -Recurse -Filter "nunit3-console.exe" | Select-Object -First 1
+          if ($nunitConsole) {
+            Write-Host "Using NUnit3 console runner: $($nunitConsole.FullName)"
+            & $nunitConsole.FullName "UI.Tests/bin/Release/CSTestFramework.UI.Tests.dll" "--work=allure-results/ui"
+          } else {
+            # Fallback to dotnet test
+            Write-Host "NUnit3 console runner not found, using dotnet test"
+            dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
+          }
         continue-on-error: true
       
       # Check if test results are being generated
@@ -214,242 +248,13 @@ jobs:
             }
           }
           
-          # Generate a sample test result if no test results are found
+          # Check for real test results
           $testResultFiles = Get-ChildItem -Path "allure-results" -Filter "*-result.json" -File -ErrorAction SilentlyContinue
-          if (-not $testResultFiles -or $testResultFiles.Count -eq 0) {
-            Write-Host "No test result files found, generating minimal sample test results"
-            
-            # Create UUIDs for the tests
-            $testUuid1 = [guid]::NewGuid().ToString()
-            $containerUuid = [guid]::NewGuid().ToString()
-            $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-            
-            # Create a minimal test result with proper Allure structure
-            $testResult1 = @{
-              uuid = $testUuid1
-              historyId = $testUuid1
-              name = "Sample Test (No real tests were run)"
-              fullName = "CSTestFramework.SampleTest.SampleTestMethod"
-              status = "passed"
-              stage = "finished"
-              start = $timestamp - 1000
-              stop = $timestamp
-              labels = @(
-                @{ name = "suite"; value = "Sample Suite" },
-                @{ name = "feature"; value = "Sample Feature" },
-                @{ name = "story"; value = "Sample Story" },
-                @{ name = "package"; value = "CSTestFramework" },
-                @{ name = "testClass"; value = "SampleTest" },
-                @{ name = "testMethod"; value = "SampleTestMethod" }
-              )
-              steps = @(
-                @{
-                  name = "This is a placeholder. No real tests were executed."
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 500
-                  stop = $timestamp
-                }
-              )
-              description = "This is a placeholder test. No real tests were executed."
-            } | ConvertTo-Json -Depth 10
-            
-            # Write the test result file
-            Set-Content -Path "allure-results/$testUuid1-result.json" -Value $testResult1
-            Write-Host "Generated minimal sample test result"
-            
-            # Create a test container file with proper structure
-            $containerJson = @{
-              uuid = $containerUuid
-              name = "CSTestFramework Tests"
-              children = @($testUuid1)
-              befores = @()
-              afters = @()
-              links = @()
-              start = $timestamp - 2000
-              stop = $timestamp
-            } | ConvertTo-Json -Depth 10
-            
-            # Write the container file
-            Set-Content -Path "allure-results/$containerUuid-container.json" -Value $containerJson
-            Write-Host "Generated test container: allure-results/$containerUuid-container.json"
+          if ($testResultFiles -and $testResultFiles.Count -gt 0) {
+            Write-Host "Found $($testResultFiles.Count) real test result files"
           } else {
-            Write-Host "Using real test results from test runs"
-            
-            # Analyze real test results to generate proper widgets
-            Write-Host "Analyzing real test results to generate proper widgets"
-            
-            # Read all test results to extract metadata
-            $allTestResults = @()
-            $testResultFiles | ForEach-Object {
-              try {
-                $testResult = Get-Content $_.FullName | ConvertFrom-Json
-                $allTestResults += $testResult
-              } catch {
-                Write-Host "Error reading test result file $($_.Name): $_"
-              }
-            }
-            
-            # Extract unique features, stories, and suites
-            $features = @{}
-            $stories = @{}
-            $suites = @{}
-            
-            foreach ($test in $allTestResults) {
-              if ($test.labels) {
-                # Extract feature
-                $featureLabel = $test.labels | Where-Object { $_.name -eq "feature" } | Select-Object -First 1
-                if ($featureLabel) {
-                  $featureName = $featureLabel.value
-                  if (-not $features.ContainsKey($featureName)) {
-                    $features[$featureName] = @{
-                      passed = 0
-                      failed = 0
-                      broken = 0
-                      skipped = 0
-                      unknown = 0
-                      total = 0
-                      stories = @{}
-                    }
-                  }
-                  
-                  # Update feature statistics
-                  $features[$featureName].total++
-                  $features[$featureName].$($test.status)++
-                  
-                  # Extract story
-                  $storyLabel = $test.labels | Where-Object { $_.name -eq "story" } | Select-Object -First 1
-                  if ($storyLabel) {
-                    $storyName = $storyLabel.value
-                    if (-not $features[$featureName].stories.ContainsKey($storyName)) {
-                      $features[$featureName].stories[$storyName] = @{
-                        passed = 0
-                        failed = 0
-                        broken = 0
-                        skipped = 0
-                        unknown = 0
-                        total = 0
-                      }
-                    }
-                    
-                    # Update story statistics
-                    $features[$featureName].stories[$storyName].total++
-                    $features[$featureName].stories[$storyName].$($test.status)++
-                  }
-                }
-                
-                # Extract suite
-                $suiteLabel = $test.labels | Where-Object { $_.name -eq "suite" } | Select-Object -First 1
-                if ($suiteLabel) {
-                  $suiteName = $suiteLabel.value
-                  if (-not $suites.ContainsKey($suiteName)) {
-                    $suites[$suiteName] = @{
-                      passed = 0
-                      failed = 0
-                      broken = 0
-                      skipped = 0
-                      unknown = 0
-                      total = 0
-                    }
-                  }
-                  
-                  # Update suite statistics
-                  $suites[$suiteName].total++
-                  $suites[$suiteName].$($test.status)++
-                }
-              }
-            }
-            
-            # Generate behaviors.json based on real test data
-            if ($features.Count -gt 0) {
-              $behaviorsItems = @()
-              
-              foreach ($featureName in $features.Keys) {
-                $feature = $features[$featureName]
-                $featureUid = $featureName.ToLower() -replace '\s+', '-'
-                
-                $storiesItems = @()
-                foreach ($storyName in $feature.stories.Keys) {
-                  $story = $feature.stories[$storyName]
-                  $storyUid = "$featureUid;$($storyName.ToLower() -replace '\s+', '-')"
-                  
-                  $storiesItems += @{
-                    uid = $storyUid
-                    name = $storyName
-                    statistic = @{
-                      passed = $story.passed
-                      failed = $story.failed
-                      broken = $story.broken
-                      skipped = $story.skipped
-                      unknown = $story.unknown
-                      total = $story.total
-                    }
-                  }
-                }
-                
-                $behaviorsItems += @{
-                  uid = $featureUid
-                  name = $featureName
-                  statistic = @{
-                    passed = $feature.passed
-                    failed = $feature.failed
-                    broken = $feature.broken
-                    skipped = $feature.skipped
-                    unknown = $feature.unknown
-                    total = $feature.total
-                  }
-                  children = $storiesItems
-                }
-              }
-              
-              # Create behaviors.json with real data
-              $behaviors = @{
-                total = $features.Count
-                items = $behaviorsItems
-              } | ConvertTo-Json -Depth 10
-              
-              # Create data directory if it doesn't exist
-              if (-not (Test-Path "allure-results/data")) {
-                New-Item -ItemType Directory -Path "allure-results/data" -Force
-              }
-              
-              # Write behaviors.json
-              Set-Content -Path "allure-results/data/behaviors.json" -Value $behaviors -Encoding UTF8
-              Write-Host "Generated behaviors.json with real test data"
-            }
-            
-            # Generate suites.json based on real test data
-            if ($suites.Count -gt 0) {
-              $suitesItems = @()
-              
-              foreach ($suiteName in $suites.Keys) {
-                $suite = $suites[$suiteName]
-                $suiteUid = $suiteName.ToLower() -replace '\s+', '-'
-                
-                $suitesItems += @{
-                  uid = $suiteUid
-                  name = $suiteName
-                  statistic = @{
-                    passed = $suite.passed
-                    failed = $suite.failed
-                    broken = $suite.broken
-                    skipped = $suite.skipped
-                    unknown = $suite.unknown
-                    total = $suite.total
-                  }
-                }
-              }
-              
-              # Create suites.json with real data
-              $suitesJson = @{
-                total = $suites.Count
-                items = $suitesItems
-              } | ConvertTo-Json -Depth 10
-              
-              # Write suites.json
-              Set-Content -Path "allure-results/data/suites.json" -Value $suitesJson -Encoding UTF8
-              Write-Host "Generated suites.json with real test data"
-            }
+            Write-Host "No test result files found. This could indicate an issue with the test execution or Allure integration."
+            Write-Host "Please check that the Allure.NUnit adapter is properly configured in your test projects."
           }
       
       # Collect all Allure results
@@ -627,76 +432,17 @@ jobs:
             New-Item -ItemType Directory -Path "allure-report" -Force
           }
           
-          # Generate the report
-          allure generate allure-results --clean -o allure-report
-          
-          # Ensure environment.xml is in the data directory
-          if (Test-Path "allure-results/environment.xml") {
-            Write-Host "Copying environment.xml to report data directory"
-            if (-not (Test-Path "allure-report/data")) {
-              New-Item -ItemType Directory -Path "allure-report/data" -Force
-            }
-            Copy-Item -Path "allure-results/environment.xml" -Destination "allure-report/data/" -Force
-          }
-          
-          # Ensure suites.json is in the data directory
-          if (Test-Path "allure-results/data/suites.json") {
-            Write-Host "Copying suites.json to report data directory"
-            if (-not (Test-Path "allure-report/data")) {
-              New-Item -ItemType Directory -Path "allure-report/data" -Force
-            }
-            Copy-Item -Path "allure-results/data/suites.json" -Destination "allure-report/data/" -Force
-          }
-          
-          # Create history directory in report
-          if (-not (Test-Path "allure-report/history")) {
-            New-Item -ItemType Directory -Path "allure-report/history" -Force
-          }
+          # Generate the report using official Allure command line options
+          Write-Host "Generating Allure report..."
+          allure generate allure-results --clean -o allure-report --report-title "CSTestFramework Automation Report"
           
           # Copy history files to history directory for next run
-          if (Test-Path "allure-report/data/history.json") {
-            Copy-Item -Path "allure-report/data/history.json" -Destination "allure-report/history/" -Force
-          }
-          if (Test-Path "allure-report/widgets/history-trend.json") {
-            Copy-Item -Path "allure-report/widgets/history-trend.json" -Destination "allure-report/history/" -Force
-          }
-          if (Test-Path "allure-report/widgets/categories-trend.json") {
-            Copy-Item -Path "allure-report/widgets/categories-trend.json" -Destination "allure-report/history/" -Force
-          }
-          if (Test-Path "allure-report/widgets/duration-trend.json") {
-            Copy-Item -Path "allure-report/widgets/duration-trend.json" -Destination "allure-report/history/" -Force
-          }
-          if (Test-Path "allure-report/widgets/retry-trend.json") {
-            Copy-Item -Path "allure-report/widgets/retry-trend.json" -Destination "allure-report/history/" -Force
-          }
-          
-          # Update widgets/summary.json to show correct test count
-          if (Test-Path "allure-report/widgets/summary.json") {
-            Write-Host "Updating summary.json with correct test count"
-            $summary = Get-Content "allure-report/widgets/summary.json" | ConvertFrom-Json
-            
-            # Count test results
-            $testCount = $testResultFiles.Count
-            if ($testCount -eq 0) { $testCount = 1 } # Default to 1 test if none found
-            
-            # Update summary with correct test count
-            $summary.statistic.total = $testCount
-            $summary.statistic.passed = $testCount
-            
-            # Save updated summary
-            $summary | ConvertTo-Json -Depth 10 | Set-Content "allure-report/widgets/summary.json"
-          }
-          
-          # Update report title in index.html
-          if (Test-Path "allure-report/index.html") {
-            Write-Host "Updating report title in index.html"
-            (Get-Content "allure-report/index.html") -replace '<title>Allure Report</title>', '<title>CSTestFramework Automation Report</title>' | Set-Content "allure-report/index.html"
-          }
-          
-          # Update app.js to fix title
-          if (Test-Path "allure-report/app.js") {
-            Write-Host "Updating app.js to fix title"
-            (Get-Content "allure-report/app.js") -replace 'reportName\+".*unknown.*"', 'reportName+""' | Set-Content "allure-report/app.js"
+          if (Test-Path "allure-report/history") {
+            Write-Host "Copying history files for next run"
+            if (-not (Test-Path "allure-history")) {
+              New-Item -ItemType Directory -Path "allure-history" -Force
+            }
+            Copy-Item -Path "allure-report/history/*" -Destination "allure-history/" -Force -Recurse
           }
           
           # Print report structure for debugging
@@ -752,7 +498,7 @@ jobs:
             git checkout origin/gh-pages -- history || echo "No history directory in gh-pages branch"
             if [ -d "history" ]; then
               echo "History directory found, copying to allure-history"
-              cp -r history allure-history/ || true
+              cp -r history/* allure-history/ || true
               echo "history_found=true" >> $GITHUB_OUTPUT
             else
               echo "No history directory found in gh-pages branch"
@@ -767,254 +513,28 @@ jobs:
       - name: Prepare Allure history
         run: |
           mkdir -p allure-report/history
-          if [ -d "allure-history/history" ] && [ "$(ls -A allure-history/history 2>/dev/null)" ]; then
+          if [ -d "allure-history" ] && [ "$(ls -A allure-history 2>/dev/null)" ]; then
             echo "Previous history found, copying to report"
-            cp -r allure-history/history/* allure-report/history/ || true
+            cp -r allure-history/* allure-report/history/ || true
           else
             echo "No previous history found, using empty history directory"
           fi
 
+      # Verify Allure Report Directory
       - name: Verify Allure Report Directory
         run: |
           # Check if the directory exists and has content
           if [ -d "allure-report" ]; then
             echo "Allure report directory exists"
             find allure-report -type f | wc -l
+            echo "Sample files:"
+            find allure-report -type f | head -n 10
           else
             echo "Allure report directory does not exist"
             exit 1
           fi
       
-      # Direct HTML modification to remove subtitle
-      - name: Direct HTML modification
-        run: |
-          if [ -f "allure-report/index.html" ]; then
-            echo "Performing direct HTML modification to remove subtitle"
-            
-            # Create a temporary file to hold the modified HTML
-            cat allure-report/index.html > temp.html
-            
-            # Use awk to process the HTML file and remove the subtitle div
-            awk '
-            {
-              # Skip printing lines containing the subtitle
-              if (index($0, "side-nav__brand-subtitle") > 0) {
-                next;
-              }
-              # Print all other lines
-              print;
-            }' temp.html > allure-report/index.html
-            
-            # Clean up
-            rm temp.html
-            
-            # Replace the entire brand section with a custom one
-            sed -i 's|<div class="side-nav__brand">.*<div class="side-nav__brand-text">.*</div>.*</div>|<div class="side-nav__brand"><div class="side-nav__brand-text">CSTESTFRAMEWORK AUTOMATION REPORT</div></div>|g' allure-report/index.html
-            
-            echo "Direct HTML modification completed"
-          fi
-      
-      # Ensure executor.json is properly set
-      - name: Update executor information
-        run: |
-          # First, let's examine the structure to understand what files need to be modified
-          echo "Examining Allure report structure..."
-          find allure-report -type f -name "*.js" -o -name "*.json" -o -name "*.html" | xargs grep -l "unknown" || true
-          
-          # Create a complete report-data.json file
-          mkdir -p allure-report/data
-          cat > allure-report/data/report-data.json << EOF
-          {
-            "uid" : "$(date +%s%N)",
-            "name" : "CSTestFramework Automation Report",
-            "children" : [ ],
-            "befores" : [ ],
-            "afters" : [ ],
-            "links" : [ ],
-            "start" : $(date +%s%N | cut -b1-13),
-            "stop" : $(date +%s%N | cut -b1-13),
-            "reportName" : "CSTestFramework Automation Report",
-            "projectName": "CSTestFramework",
-            "reportVersion": "1.0"
-          }
-          EOF
-          
-          # Create a custom plugin to override the subtitle
-          mkdir -p allure-report/plugins/custom-subtitle-fix
-          cat > allure-report/plugins/custom-subtitle-fix/index.js << EOF
-          (function() {
-            var oldGetReportName = window.allure.getReportName;
-            window.allure.getReportName = function() {
-              return "CSTestFramework Automation Report";
-            };
-            
-            // Override the subtitle getter if it exists
-            if (window.allure.getReportSubtitle) {
-              window.allure.getReportSubtitle = function() {
-                return "";
-              };
-            }
-            
-            // Add CSS to hide subtitle
-            var style = document.createElement('style');
-            style.type = 'text/css';
-            style.innerHTML = '.side-nav__brand-subtitle { display: none !important; }';
-            document.getElementsByTagName('head')[0].appendChild(style);
-          })();
-          EOF
-          
-          # Add the custom plugin to the index.html
-          if [ -f "allure-report/index.html" ]; then
-            echo "Adding custom plugin to index.html"
-            sed -i 's|</body>|<script src="plugins/custom-subtitle-fix/index.js"></script>\n</body>|' allure-report/index.html
-            
-            # Also add a script to the head that will run before Allure loads
-            echo "Adding early script to override subtitle"
-            sed -i 's|<head>|<head>\n<script>\nwindow.allureSubtitleOverride = true;\nObject.defineProperty(window, "allure", {\n  get: function() { return this._allure; },\n  set: function(val) {\n    if (val && typeof val === "object") {\n      if (val.getReportSubtitle) {\n        val.getReportSubtitle = function() { return ""; };\n      }\n    }\n    this._allure = val;\n  }\n});\n</script>|' allure-report/index.html
-          fi
-          
-          # More aggressive approach to fix the title in index.html
-          if [ -f "allure-report/index.html" ]; then
-            echo "Fixing title in index.html"
-            # Replace the title line completely
-            sed -i 's|<title>Allure Report</title>|<title>CSTestFramework Automation Report</title>|g' allure-report/index.html
-            # Try to find and replace the unknown subtitle
-            sed -i 's|unknown - unknown (Unknown)||g' allure-report/index.html
-            # Another possible format
-            sed -i 's|UNKNOWN - UNKNOWN (UNKNOWN)||g' allure-report/index.html
-            
-            # Try to directly modify the HTML structure to remove the subtitle element
-            echo "Attempting to modify HTML structure to remove subtitle..."
-            
-            # Remove the subtitle div if it exists
-            sed -i 's|<div class="side-nav__brand-subtitle">.*</div>||g' allure-report/index.html
-            
-            # Create a custom CSS to hide the subtitle
-            echo "<style>.side-nav__brand-subtitle { display: none !important; }</style>" >> allure-report/index.html
-          fi
-          
-          # Fix app.js which likely contains the subtitle logic
-          if [ -f "allure-report/app.js" ]; then
-            echo "Fixing app.js"
-            # Try to find and replace various patterns that might be causing the issue
-            sed -i 's|reportName+".*unknown.*"|reportName+""|g' allure-report/app.js || true
-            sed -i 's|reportName+" - "+.*unknown.*|reportName+""|g' allure-report/app.js || true
-            sed -i 's|unknown - unknown (Unknown)||g' allure-report/app.js || true
-            
-            # Add project information directly
-            echo "
-            window.allure = window.allure || {};
-            window.allure.project = {
-              name: 'CSTestFramework',
-              version: '1.0'
-            };
-            // Override the title rendering function if it exists
-            if (window.allure.getReportName) {
-              window.allure.getReportName = function() {
-                return 'CSTestFramework Automation Report';
-              };
-            }
-            " >> allure-report/app.js
-          fi
-          
-          # Fix bundle.js which might contain the subtitle logic
-          if [ -f "allure-report/plugins/screen-diff/styles.css" ]; then
-            echo "Adding custom CSS to hide subtitle"
-            echo ".side-nav__brand-subtitle { display: none !important; }" >> allure-report/plugins/screen-diff/styles.css
-          fi
-          
-          if [ -f "allure-report/bundle.js" ]; then
-            echo "Fixing bundle.js"
-            # Try to find and replace various patterns that might be causing the issue
-            sed -i 's|unknown - unknown (Unknown)||g' allure-report/bundle.js || true
-            sed -i 's|"unknown"|""|g' allure-report/bundle.js || true
-            sed -i 's|subtitle:"unknown"|subtitle:""|g' allure-report/bundle.js || true
-            sed -i 's|subtitle:"unknown (Unknown)"|subtitle:""|g' allure-report/bundle.js || true
-          fi
-          
-          # Create a custom CSS file to hide the subtitle
-          echo "Creating custom CSS to hide subtitle"
-          mkdir -p allure-report/styles
-          cat > allure-report/styles/custom.css << EOF
-          .side-nav__brand-subtitle {
-            display: none !important;
-          }
-          EOF
-          
-          # Add the custom CSS to the index.html
-          if [ -f "allure-report/index.html" ]; then
-            echo "Adding custom CSS to index.html"
-            sed -i 's|</head>|<link rel="stylesheet" href="styles/custom.css">\n</head>|' allure-report/index.html
-          fi
-          
-          # Create widgets files
-          mkdir -p allure-report/widgets
-          cat > allure-report/widgets/summary.json << EOF
-          {
-            "reportName": "CSTestFramework Automation Report",
-            "testRuns": [],
-            "statistic": {
-              "failed": 0,
-              "broken": 0,
-              "skipped": 0,
-              "passed": 0,
-              "unknown": 0,
-              "total": 0
-            },
-            "time": {}
-          }
-          EOF
-          
-          cat > allure-report/widgets/executors.json << EOF
-          {
-            "total" : 1,
-            "items" : [ {
-              "name" : "GitHub Actions",
-              "type" : "github",
-              "url" : "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-              "buildOrder" : ${{ github.run_number }},
-              "buildName" : "Build #${{ github.run_number }}",
-              "reportName" : "CSTestFramework Automation Report",
-              "reportUrl" : "https://kryvokhatko.github.io/github.io/"
-            } ]
-          }
-          EOF
-          
-          # Also create executor.json in the root directory
-          cat > allure-report/executor.json << EOF
-          {
-            "name" : "GitHub Actions",
-            "type" : "github",
-            "reportName" : "CSTestFramework Automation Report",
-            "buildName" : "Build #${{ github.run_number }}",
-            "buildUrl" : "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-            "reportUrl" : "https://kryvokhatko.github.io/github.io/"
-          }
-          EOF
-          
-          # Create behaviors.json with project information
-          cat > allure-report/widgets/behaviors.json << EOF
-          {
-            "total" : 0,
-            "items" : [ ],
-            "projectName": "CSTestFramework",
-            "projectVersion": "1.0"
-          }
-          EOF
-          
-          # Create project-metadata.json
-          cat > allure-report/data/project-metadata.json << EOF
-          {
-            "name": "CSTestFramework",
-            "version": "1.0",
-            "description": "C# Test Automation Framework",
-            "language": "C#",
-            "framework": "NUnit"
-          }
-          EOF
-          
-          echo "Updated executor information"
-      
+      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
