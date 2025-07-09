@@ -48,6 +48,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       
+      # Setup Allure CommandLine
       - name: Setup Allure CommandLine
         run: |
           Invoke-WebRequest -Uri "https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.zip" -OutFile "allure.zip"
@@ -55,6 +56,7 @@ jobs:
           $env:PATH += ";$(Get-Location)\allure-2.24.0\bin"
           echo "$env:PATH" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       
+      # Prepare Allure Results Directory
       - name: Prepare Allure Results Directory
         run: |
           # Create a clean directory for Allure results
@@ -62,6 +64,58 @@ jobs:
             Remove-Item -Recurse -Force "allure-results" -ErrorAction SilentlyContinue
           }
           New-Item -ItemType Directory -Path "allure-results" -Force
+      
+      # Setup Allure CLI
+      - name: Setup Allure
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_report: allure-report
+          allure_results: allure-results
+          allure_history: allure-history
+          keep_reports: 20
+      
+      # Download Allure history from GitHub Pages
+      - name: Download Allure History
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: |
+          # Create allure-history directory
+          New-Item -ItemType Directory -Path allure-history -Force
+          
+          # Try to download history from GitHub Pages
+          try {
+            Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history.json" -OutFile "allure-history/history.json"
+            Write-Host "Successfully downloaded history.json"
+            
+            # Create history directory if it doesn't exist
+            if (-not (Test-Path "allure-results/history")) {
+              New-Item -ItemType Directory -Path "allure-results/history" -Force
+            }
+            
+            # Copy history to allure-results
+            Copy-Item -Path "allure-history/history.json" -Destination "allure-results/history/" -Force
+            
+            # Try to download history-trend.json
+            Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/history-trend.json" -OutFile "allure-history/history-trend.json"
+            Copy-Item -Path "allure-history/history-trend.json" -Destination "allure-results/history/" -Force
+            
+            # Try to download categories-trend.json
+            Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/categories-trend.json" -OutFile "allure-history/categories-trend.json"
+            Copy-Item -Path "allure-history/categories-trend.json" -Destination "allure-results/history/" -Force
+            
+            # Try to download duration-trend.json
+            Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/duration-trend.json" -OutFile "allure-history/duration-trend.json"
+            Copy-Item -Path "allure-history/duration-trend.json" -Destination "allure-results/history/" -Force
+            
+            # Try to download retry-trend.json
+            Invoke-WebRequest -Uri "https://kryvokhatko.github.io/github.io/history/retry-trend.json" -OutFile "allure-history/retry-trend.json"
+            Copy-Item -Path "allure-history/retry-trend.json" -Destination "allure-results/history/" -Force
+            
+            Write-Host "Successfully downloaded and copied history files"
+          } catch {
+            Write-Host "Failed to download history: $_"
+            Write-Host "This is normal for the first run or if the history files don't exist yet"
+          }
       
       # Run API tests with separate process
       - name: Run API Tests
@@ -75,8 +129,12 @@ jobs:
           } | ConvertTo-Json -Depth 10
           Set-Content -Path "allure.config" -Value $allureConfig
           
-          # Run tests with standard NUnit runner
-          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
+          # Copy the allure config to the test project to ensure it's used
+          Copy-Item -Path "allure.config" -Destination "API.Tests/allure.config" -Force
+          
+          # Run tests with NUnit console runner to ensure Allure results are generated
+          Write-Host "Running API tests with NUnit console runner"
+          dotnet test API.Tests/CSTestFramework.API.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed" --results-directory:"allure-results/api"
         continue-on-error: true
       
       # Wait a moment before running UI tests to ensure resources are released
@@ -86,8 +144,12 @@ jobs:
       # Run UI tests with separate process
       - name: Run UI Tests
         run: |
-          # Run tests with standard NUnit runner
-          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed"
+          # Copy the allure config to the test project to ensure it's used
+          Copy-Item -Path "allure.config" -Destination "UI.Tests/allure.config" -Force
+          
+          # Run tests with NUnit console runner to ensure Allure results are generated
+          Write-Host "Running UI tests with NUnit console runner"
+          dotnet test UI.Tests/CSTestFramework.UI.Tests.csproj --configuration Release --no-build --logger "console;verbosity=detailed" --results-directory:"allure-results/ui"
         continue-on-error: true
       
       # Check if test results are being generated
@@ -96,8 +158,20 @@ jobs:
           Write-Host "Checking for test results..."
           
           # Check if any Allure results exist in the project directories
-          $apiResults = Get-ChildItem -Path "API.Tests" -Recurse -Filter "allure-results" -Directory
-          $uiResults = Get-ChildItem -Path "UI.Tests" -Recurse -Filter "allure-results" -Directory
+          $apiResults = Get-ChildItem -Path "API.Tests" -Recurse -Filter "allure-results" -Directory -ErrorAction SilentlyContinue
+          $uiResults = Get-ChildItem -Path "UI.Tests" -Recurse -Filter "allure-results" -Directory -ErrorAction SilentlyContinue
+          $mainResults = @()
+          
+          if (Test-Path "allure-results/api") {
+            $mainResults += Get-ChildItem -Path "allure-results/api" -File -ErrorAction SilentlyContinue
+            Write-Host "Found $(($mainResults | Measure-Object).Count) API test result files in allure-results/api"
+          }
+          
+          if (Test-Path "allure-results/ui") {
+            $uiFiles = Get-ChildItem -Path "allure-results/ui" -File -ErrorAction SilentlyContinue
+            $mainResults += $uiFiles
+            Write-Host "Found $(($uiFiles | Measure-Object).Count) UI test result files in allure-results/ui"
+          }
           
           if ($apiResults) {
             Write-Host "API test results found in:"
@@ -105,7 +179,7 @@ jobs:
             Write-Host "Contents:"
             Get-ChildItem -Path $apiResults.FullName | ForEach-Object { Write-Host $_.Name }
           } else {
-            Write-Host "No API test results found"
+            Write-Host "No API test results found in project directories"
           }
           
           if ($uiResults) {
@@ -114,231 +188,276 @@ jobs:
             Write-Host "Contents:"
             Get-ChildItem -Path $uiResults.FullName | ForEach-Object { Write-Host $_.Name }
           } else {
-            Write-Host "No UI test results found"
+            Write-Host "No UI test results found in project directories"
           }
           
           # Check if the main allure-results directory has any files
           if (Test-Path "allure-results") {
             Write-Host "Main allure-results directory exists"
-            $files = Get-ChildItem -Path "allure-results" -File
-            Write-Host "Found $($files.Count) files in allure-results directory"
+            $files = Get-ChildItem -Path "allure-results" -File -Recurse
+            Write-Host "Found $($files.Count) files in allure-results directory (including subdirectories)"
             if ($files.Count -gt 0) {
-              Write-Host "Files:"
-              $files | ForEach-Object { Write-Host $_.Name }
+              Write-Host "Sample files:"
+              $files | Select-Object -First 10 | ForEach-Object { Write-Host $_.FullName }
             }
           } else {
             Write-Host "Main allure-results directory does not exist"
           }
           
+          # Create allure-results directory if it doesn't exist
+          if (-not (Test-Path "allure-results")) {
+            New-Item -ItemType Directory -Path "allure-results" -Force
+          }
+          
+          # Copy all test results to the main allure-results directory
+          if (Test-Path "allure-results/api") {
+            Get-ChildItem -Path "allure-results/api" -File | ForEach-Object {
+              Copy-Item -Path $_.FullName -Destination "allure-results/" -Force
+            }
+          }
+          
+          if (Test-Path "allure-results/ui") {
+            Get-ChildItem -Path "allure-results/ui" -File | ForEach-Object {
+              Copy-Item -Path $_.FullName -Destination "allure-results/" -Force
+            }
+          }
+          
           # Generate a sample test result if no test results are found
           $testResultFiles = Get-ChildItem -Path "allure-results" -Filter "*-result.json" -File -ErrorAction SilentlyContinue
           if (-not $testResultFiles -or $testResultFiles.Count -eq 0) {
-            Write-Host "No test result files found, generating a sample test result"
+            Write-Host "No test result files found, generating minimal sample test results"
             
             # Create UUIDs for the tests
             $testUuid1 = [guid]::NewGuid().ToString()
-            $testUuid2 = [guid]::NewGuid().ToString()
             $containerUuid = [guid]::NewGuid().ToString()
             $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
             
-            # Create a sample test result with proper Allure structure
+            # Create a minimal test result with proper Allure structure
             $testResult1 = @{
               uuid = $testUuid1
               historyId = $testUuid1
-              name = "API Test"
-              fullName = "CSTestFramework.API.Tests.EmptyAPITests.EmptyTest"
-              status = "passed"
-              stage = "finished"
-              start = $timestamp - 2000
-              stop = $timestamp - 1000
-              labels = @(
-                @{ name = "suite"; value = "Empty API Tests" },
-                @{ name = "feature"; value = "For presentation purposes only" },
-                @{ name = "story"; value = "Successful Order" },
-                @{ name = "severity"; value = "normal" },
-                @{ name = "tag"; value = "Smoke" },
-                @{ name = "tag"; value = "API" },
-                @{ name = "package"; value = "API.Tests.Tests" },
-                @{ name = "testClass"; value = "EmptyAPITests" },
-                @{ name = "testMethod"; value = "EmptyTest" },
-                @{ name = "owner"; value = "QA Team" }
-              )
-              steps = @(
-                @{
-                  name = "Step 1: Initialize API Client"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 1900
-                  stop = $timestamp - 1800
-                },
-                @{
-                  name = "Step 2: Make API Call"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 1700
-                  stop = $timestamp - 1600
-                },
-                @{
-                  name = "Step 3: Verify Response"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 1500
-                  stop = $timestamp - 1400
-                }
-              )
-              description = "Empty test for API presentation."
-            } | ConvertTo-Json -Depth 10
-            
-            # Create a second test result
-            $testResult2 = @{
-              uuid = $testUuid2
-              historyId = $testUuid2
-              name = "UI Test - Place Order For Red Duck"
-              fullName = "CSTestFramework.UI.Tests.LitecartTests.PlaceOrderForRedDuck_Success"
+              name = "Sample Test (No real tests were run)"
+              fullName = "CSTestFramework.SampleTest.SampleTestMethod"
               status = "passed"
               stage = "finished"
               start = $timestamp - 1000
               stop = $timestamp
               labels = @(
-                @{ name = "suite"; value = "E-Commerce Tests" },
-                @{ name = "feature"; value = "Order Placement" },
-                @{ name = "story"; value = "Successful Order" },
-                @{ name = "severity"; value = "normal" },
-                @{ name = "tag"; value = "Smoke" },
-                @{ name = "tag"; value = "E2E" },
-                @{ name = "package"; value = "CSTestFramework.UI.Tests" },
-                @{ name = "testClass"; value = "LitecartTests" },
-                @{ name = "testMethod"; value = "PlaceOrderForRedDuck_Success" },
-                @{ name = "owner"; value = "QA Team" }
+                @{ name = "suite"; value = "Sample Suite" },
+                @{ name = "feature"; value = "Sample Feature" },
+                @{ name = "story"; value = "Sample Story" },
+                @{ name = "package"; value = "CSTestFramework" },
+                @{ name = "testClass"; value = "SampleTest" },
+                @{ name = "testMethod"; value = "SampleTestMethod" }
               )
               steps = @(
                 @{
-                  name = "Navigate to Home Page"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 900
-                  stop = $timestamp - 800
-                },
-                @{
-                  name = "Make Sign In and accept Change Password and cookies alerts"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 700
-                  stop = $timestamp - 600
-                },
-                @{
-                  name = "Navigate to Red Duck product item page"
+                  name = "This is a placeholder. No real tests were executed."
                   status = "passed"
                   stage = "finished"
                   start = $timestamp - 500
-                  stop = $timestamp - 400
-                },
-                @{
-                  name = "Select Red Duck"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 300
-                  stop = $timestamp - 200
-                },
-                @{
-                  name = "Add product items to cart"
-                  status = "passed"
-                  stage = "finished"
-                  start = $timestamp - 100
-                  stop = $timestamp - 50
+                  stop = $timestamp
                 }
               )
-              description = "Automates the process of placing an order for a Red Duck item."
+              description = "This is a placeholder test. No real tests were executed."
             } | ConvertTo-Json -Depth 10
             
-            # Ensure allure-results directory exists
-            if (-not (Test-Path "allure-results")) {
-              New-Item -ItemType Directory -Path "allure-results" -Force
-            }
-            
-            # Write the test result files
+            # Write the test result file
             Set-Content -Path "allure-results/$testUuid1-result.json" -Value $testResult1
-            Set-Content -Path "allure-results/$testUuid2-result.json" -Value $testResult2
-            Write-Host "Generated sample test results"
+            Write-Host "Generated minimal sample test result"
             
             # Create a test container file with proper structure
             $containerJson = @{
               uuid = $containerUuid
               name = "CSTestFramework Tests"
-              children = @($testUuid1, $testUuid2)
+              children = @($testUuid1)
               befores = @()
               afters = @()
               links = @()
-              start = $timestamp - 3000
+              start = $timestamp - 2000
               stop = $timestamp
             } | ConvertTo-Json -Depth 10
             
             # Write the container file
             Set-Content -Path "allure-results/$containerUuid-container.json" -Value $containerJson
             Write-Host "Generated test container: allure-results/$containerUuid-container.json"
+          } else {
+            Write-Host "Using real test results from test runs"
             
-            # Create a suites file with proper structure
-            $suitesJson = @{
-              uid = $containerUuid
-              name = "CSTestFramework Test Suite"
-              children = @(
-                @{
-                  name = "API Tests"
-                  children = @(
-                    @{
-                      name = "API Test"
-                      uid = $testUuid1
-                      parentUid = $containerUuid
-                      status = "passed"
-                      time = @{
-                        start = $timestamp - 2000
-                        stop = $timestamp - 1000
-                        duration = 1000
-                      }
-                      flaky = $false
-                      newFailed = $false
-                      newPassed = $false
-                      newBroken = $false
-                      retriesCount = 0
-                      retriesStatusChange = $false
-                      parameters = @()
-                    }
-                  )
-                },
-                @{
-                  name = "UI Tests"
-                  children = @(
-                    @{
-                      name = "UI Test - Place Order For Red Duck"
-                      uid = $testUuid2
-                      parentUid = $containerUuid
-                      status = "passed"
-                      time = @{
-                        start = $timestamp - 1000
-                        stop = $timestamp
-                        duration = 1000
-                      }
-                      flaky = $false
-                      newFailed = $false
-                      newPassed = $false
-                      newBroken = $false
-                      retriesCount = 0
-                      retriesStatusChange = $false
-                      parameters = @()
-                    }
-                  )
-                }
-              )
-            } | ConvertTo-Json -Depth 10
+            # Analyze real test results to generate proper widgets
+            Write-Host "Analyzing real test results to generate proper widgets"
             
-            # Create the data directory
-            if (-not (Test-Path "allure-results/data")) {
-              New-Item -ItemType Directory -Path "allure-results/data" -Force
+            # Read all test results to extract metadata
+            $allTestResults = @()
+            $testResultFiles | ForEach-Object {
+              try {
+                $testResult = Get-Content $_.FullName | ConvertFrom-Json
+                $allTestResults += $testResult
+              } catch {
+                Write-Host "Error reading test result file $($_.Name): $_"
+              }
             }
             
-            # Write the suites file
-            Set-Content -Path "allure-results/data/suites.json" -Value $suitesJson
-            Write-Host "Generated suites.json file"
+            # Extract unique features, stories, and suites
+            $features = @{}
+            $stories = @{}
+            $suites = @{}
+            
+            foreach ($test in $allTestResults) {
+              if ($test.labels) {
+                # Extract feature
+                $featureLabel = $test.labels | Where-Object { $_.name -eq "feature" } | Select-Object -First 1
+                if ($featureLabel) {
+                  $featureName = $featureLabel.value
+                  if (-not $features.ContainsKey($featureName)) {
+                    $features[$featureName] = @{
+                      passed = 0
+                      failed = 0
+                      broken = 0
+                      skipped = 0
+                      unknown = 0
+                      total = 0
+                      stories = @{}
+                    }
+                  }
+                  
+                  # Update feature statistics
+                  $features[$featureName].total++
+                  $features[$featureName].$($test.status)++
+                  
+                  # Extract story
+                  $storyLabel = $test.labels | Where-Object { $_.name -eq "story" } | Select-Object -First 1
+                  if ($storyLabel) {
+                    $storyName = $storyLabel.value
+                    if (-not $features[$featureName].stories.ContainsKey($storyName)) {
+                      $features[$featureName].stories[$storyName] = @{
+                        passed = 0
+                        failed = 0
+                        broken = 0
+                        skipped = 0
+                        unknown = 0
+                        total = 0
+                      }
+                    }
+                    
+                    # Update story statistics
+                    $features[$featureName].stories[$storyName].total++
+                    $features[$featureName].stories[$storyName].$($test.status)++
+                  }
+                }
+                
+                # Extract suite
+                $suiteLabel = $test.labels | Where-Object { $_.name -eq "suite" } | Select-Object -First 1
+                if ($suiteLabel) {
+                  $suiteName = $suiteLabel.value
+                  if (-not $suites.ContainsKey($suiteName)) {
+                    $suites[$suiteName] = @{
+                      passed = 0
+                      failed = 0
+                      broken = 0
+                      skipped = 0
+                      unknown = 0
+                      total = 0
+                    }
+                  }
+                  
+                  # Update suite statistics
+                  $suites[$suiteName].total++
+                  $suites[$suiteName].$($test.status)++
+                }
+              }
+            }
+            
+            # Generate behaviors.json based on real test data
+            if ($features.Count -gt 0) {
+              $behaviorsItems = @()
+              
+              foreach ($featureName in $features.Keys) {
+                $feature = $features[$featureName]
+                $featureUid = $featureName.ToLower() -replace '\s+', '-'
+                
+                $storiesItems = @()
+                foreach ($storyName in $feature.stories.Keys) {
+                  $story = $feature.stories[$storyName]
+                  $storyUid = "$featureUid;$($storyName.ToLower() -replace '\s+', '-')"
+                  
+                  $storiesItems += @{
+                    uid = $storyUid
+                    name = $storyName
+                    statistic = @{
+                      passed = $story.passed
+                      failed = $story.failed
+                      broken = $story.broken
+                      skipped = $story.skipped
+                      unknown = $story.unknown
+                      total = $story.total
+                    }
+                  }
+                }
+                
+                $behaviorsItems += @{
+                  uid = $featureUid
+                  name = $featureName
+                  statistic = @{
+                    passed = $feature.passed
+                    failed = $feature.failed
+                    broken = $feature.broken
+                    skipped = $feature.skipped
+                    unknown = $feature.unknown
+                    total = $feature.total
+                  }
+                  children = $storiesItems
+                }
+              }
+              
+              # Create behaviors.json with real data
+              $behaviors = @{
+                total = $features.Count
+                items = $behaviorsItems
+              } | ConvertTo-Json -Depth 10
+              
+              # Create data directory if it doesn't exist
+              if (-not (Test-Path "allure-results/data")) {
+                New-Item -ItemType Directory -Path "allure-results/data" -Force
+              }
+              
+              # Write behaviors.json
+              Set-Content -Path "allure-results/data/behaviors.json" -Value $behaviors -Encoding UTF8
+              Write-Host "Generated behaviors.json with real test data"
+            }
+            
+            # Generate suites.json based on real test data
+            if ($suites.Count -gt 0) {
+              $suitesItems = @()
+              
+              foreach ($suiteName in $suites.Keys) {
+                $suite = $suites[$suiteName]
+                $suiteUid = $suiteName.ToLower() -replace '\s+', '-'
+                
+                $suitesItems += @{
+                  uid = $suiteUid
+                  name = $suiteName
+                  statistic = @{
+                    passed = $suite.passed
+                    failed = $suite.failed
+                    broken = $suite.broken
+                    skipped = $suite.skipped
+                    unknown = $suite.unknown
+                    total = $suite.total
+                  }
+                }
+              }
+              
+              # Create suites.json with real data
+              $suitesJson = @{
+                total = $suites.Count
+                items = $suitesItems
+              } | ConvertTo-Json -Depth 10
+              
+              # Write suites.json
+              Set-Content -Path "allure-results/data/suites.json" -Value $suitesJson -Encoding UTF8
+              Write-Host "Generated suites.json with real test data"
+            }
           }
       
       # Collect all Allure results
@@ -383,6 +502,40 @@ jobs:
           
           Set-Content -Path "allure-results/executor.json" -Value $executor -Encoding UTF8
           
+          # Create categories.json for proper test categorization
+          $categories = @(
+            @{
+              name = "API Tests"
+              messageRegex = ".*API.*"
+              matchedStatuses = @("passed", "failed", "broken", "skipped")
+            },
+            @{
+              name = "UI Tests"
+              messageRegex = ".*UI.*"
+              matchedStatuses = @("passed", "failed", "broken", "skipped")
+            },
+            @{
+              name = "Failed Tests"
+              matchedStatuses = @("failed")
+            },
+            @{
+              name = "Broken Tests"
+              matchedStatuses = @("broken")
+            },
+            @{
+              name = "Skipped Tests"
+              matchedStatuses = @("skipped")
+            }
+          ) | ConvertTo-Json -Depth 10
+          
+          # Create data directory if it doesn't exist
+          if (-not (Test-Path "allure-results/data")) {
+            New-Item -ItemType Directory -Path "allure-results/data" -Force
+          }
+          
+          # Write categories.json
+          Set-Content -Path "allure-results/categories.json" -Value $categories -Encoding UTF8
+          
           # Look for allure-results directories in the entire project
           Write-Host "Searching for allure-results directories..."
           $allureResultsDirs = Get-ChildItem -Path "." -Recurse -Filter "allure-results" -Directory -ErrorAction SilentlyContinue
@@ -410,37 +563,6 @@ jobs:
               Copy-Item -Path $_.FullName -Destination "allure-results\" -Force
             }
           }
-          
-          # Copy any test results to the allure-results directory
-          Get-ChildItem -Path "API.Tests" -Recurse -Filter "allure-results" | 
-            ForEach-Object {
-              # Skip the main allure-results directory
-              if ($mainAllureResultsPath -and $_.FullName -eq $mainAllureResultsPath) {
-                Write-Host "Skipping main allure-results directory: $($_.FullName)"
-                return
-              }
-              
-              Write-Host "Copying API test results from $($_.FullName)"
-              Get-ChildItem -Path "$($_.FullName)" -File | ForEach-Object {
-                Write-Host "Copying $($_.Name) to main allure-results directory"
-                Copy-Item -Path $_.FullName -Destination "allure-results\" -Force
-              }
-            }
-            
-          Get-ChildItem -Path "UI.Tests" -Recurse -Filter "allure-results" | 
-            ForEach-Object {
-              # Skip the main allure-results directory
-              if ($mainAllureResultsPath -and $_.FullName -eq $mainAllureResultsPath) {
-                Write-Host "Skipping main allure-results directory: $($_.FullName)"
-                return
-              }
-              
-              Write-Host "Copying UI test results from $($_.FullName)"
-              Get-ChildItem -Path "$($_.FullName)" -File | ForEach-Object {
-                Write-Host "Copying $($_.Name) to main allure-results directory"
-                Copy-Item -Path $_.FullName -Destination "allure-results\" -Force
-              }
-            }
           
           # Create environment.properties file AFTER copying test results to ensure it's not overwritten
           $envProps = @(
@@ -494,36 +616,6 @@ jobs:
           Set-Content -Path "allure-results/environment.xml" -Value $xmlContent -Encoding UTF8
           Write-Host "Created environment.xml file"
           
-          # Create categories.json for test result categorization
-          $categoriesArray = @(
-            @{
-              name = "Ignored tests"
-              matchedStatuses = @("skipped")
-            },
-            @{
-              name = "Infrastructure problems"
-              matchedStatuses = @("broken", "failed")
-              messageRegex = ".*System\\..*Exception.*"
-            },
-            @{
-              name = "Element interaction failures"
-              matchedStatuses = @("broken")
-              messageRegex = ".*Element.*not.*found.*"
-            },
-            @{
-              name = "Product defects"
-              matchedStatuses = @("failed")
-            },
-            @{
-              name = "Test defects"
-              matchedStatuses = @("broken")
-            }
-          )
-          
-          $categoriesJson = ConvertTo-Json -InputObject $categoriesArray -Depth 3
-          Set-Content -Path "allure-results/categories.json" -Value $categoriesJson -Encoding UTF8
-          Write-Host "Created categories.json file"
-            
           # Verify environment.properties exists in the results directory
           if (Test-Path "allure-results/environment.properties") {
             Write-Host "environment.properties file exists in allure-results directory"
@@ -534,6 +626,11 @@ jobs:
       
       - name: Generate Allure Report
         run: |
+          # First, check if we have real test results
+          $testResultFiles = Get-ChildItem -Path "allure-results" -Filter "*-result.json" -File -ErrorAction SilentlyContinue
+          Write-Host "Found $($testResultFiles.Count) test result files"
+          
+          # Generate the report
           allure generate allure-results --clean -o allure-report
           
           # Ensure environment.xml is in the data directory
@@ -554,15 +651,36 @@ jobs:
             Copy-Item -Path "allure-results/data/suites.json" -Destination "allure-report/data/" -Force
           }
           
+          # Create history directory in report
+          if (-not (Test-Path "allure-report/history")) {
+            New-Item -ItemType Directory -Path "allure-report/history" -Force
+          }
+          
+          # Copy history files to history directory for next run
+          if (Test-Path "allure-report/data/history.json") {
+            Copy-Item -Path "allure-report/data/history.json" -Destination "allure-report/history/" -Force
+          }
+          if (Test-Path "allure-report/widgets/history-trend.json") {
+            Copy-Item -Path "allure-report/widgets/history-trend.json" -Destination "allure-report/history/" -Force
+          }
+          if (Test-Path "allure-report/widgets/categories-trend.json") {
+            Copy-Item -Path "allure-report/widgets/categories-trend.json" -Destination "allure-report/history/" -Force
+          }
+          if (Test-Path "allure-report/widgets/duration-trend.json") {
+            Copy-Item -Path "allure-report/widgets/duration-trend.json" -Destination "allure-report/history/" -Force
+          }
+          if (Test-Path "allure-report/widgets/retry-trend.json") {
+            Copy-Item -Path "allure-report/widgets/retry-trend.json" -Destination "allure-report/history/" -Force
+          }
+          
           # Update widgets/summary.json to show correct test count
           if (Test-Path "allure-report/widgets/summary.json") {
             Write-Host "Updating summary.json with correct test count"
             $summary = Get-Content "allure-report/widgets/summary.json" | ConvertFrom-Json
             
             # Count test results
-            $testResultFiles = Get-ChildItem -Path "allure-results" -Filter "*-result.json" -File -ErrorAction SilentlyContinue
             $testCount = $testResultFiles.Count
-            if ($testCount -eq 0) { $testCount = 2 } # Default to 2 tests if none found
+            if ($testCount -eq 0) { $testCount = 1 } # Default to 1 test if none found
             
             # Update summary with correct test count
             $summary.statistic.total = $testCount
@@ -572,160 +690,23 @@ jobs:
             $summary | ConvertTo-Json -Depth 10 | Set-Content "allure-report/widgets/summary.json"
           }
           
-          # Create additional widget files that Allure expects
-          Write-Host "Creating additional widget files"
-          
-          # Create behaviors.json with proper structure
-          $behaviors = @{
-            total = 2
-            items = @(
-              @{
-                uid = "for-presentation-purposes-only"
-                name = "For presentation purposes only"
-                statistic = @{
-                  passed = 1
-                  failed = 0
-                  broken = 0
-                  skipped = 0
-                  unknown = 0
-                  total = 1
-                }
-                children = @(
-                  @{
-                    uid = "for-presentation-purposes-only;successful-order"
-                    name = "Successful Order"
-                    statistic = @{
-                      passed = 1
-                      failed = 0
-                      broken = 0
-                      skipped = 0
-                      unknown = 0
-                      total = 1
-                    }
-                  }
-                )
-              },
-              @{
-                uid = "order-placement"
-                name = "Order Placement"
-                statistic = @{
-                  passed = 1
-                  failed = 0
-                  broken = 0
-                  skipped = 0
-                  unknown = 0
-                  total = 1
-                }
-                children = @(
-                  @{
-                    uid = "order-placement;successful-order"
-                    name = "Successful Order"
-                    statistic = @{
-                      passed = 1
-                      failed = 0
-                      broken = 0
-                      skipped = 0
-                      unknown = 0
-                      total = 1
-                    }
-                  }
-                )
-              }
-            )
-          } | ConvertTo-Json -Depth 10
-          
-          if (-not (Test-Path "allure-report/widgets")) {
-            New-Item -ItemType Directory -Path "allure-report/widgets" -Force
+          # Update report title in index.html
+          if (Test-Path "allure-report/index.html") {
+            Write-Host "Updating report title in index.html"
+            (Get-Content "allure-report/index.html") -replace '<title>Allure Report</title>', '<title>CSTestFramework Automation Report</title>' | Set-Content "allure-report/index.html"
           }
           
-          Set-Content -Path "allure-report/widgets/behaviors.json" -Value $behaviors
-          
-          # Create categories.json with proper structure
-          $categories = @{
-            total = 5
-            items = @(
-              @{
-                name = "Ignored tests"
-                matchedStatuses = @("skipped")
-                statistic = @{
-                  total = 0
-                }
-              },
-              @{
-                name = "Infrastructure problems"
-                matchedStatuses = @("broken", "failed")
-                messageRegex = ".*System\\..*Exception.*"
-                statistic = @{
-                  total = 0
-                }
-              },
-              @{
-                name = "Element interaction failures"
-                matchedStatuses = @("broken")
-                messageRegex = ".*Element.*not.*found.*"
-                statistic = @{
-                  total = 0
-                }
-              },
-              @{
-                name = "Product defects"
-                matchedStatuses = @("failed")
-                statistic = @{
-                  total = 0
-                }
-              },
-              @{
-                name = "Test defects"
-                matchedStatuses = @("broken")
-                statistic = @{
-                  total = 0
-                }
-              }
-            )
-          } | ConvertTo-Json -Depth 10
-          
-          Set-Content -Path "allure-report/widgets/categories.json" -Value $categories
-          
-          # Create suites.json with proper structure for widgets
-          $suitesWidget = @{
-            total = 2
-            items = @(
-              @{
-                uid = "empty-api-tests"
-                name = "Empty API Tests"
-                statistic = @{
-                  passed = 1
-                  failed = 0
-                  broken = 0
-                  skipped = 0
-                  unknown = 0
-                  total = 1
-                }
-              },
-              @{
-                uid = "e-commerce-tests"
-                name = "E-Commerce Tests"
-                statistic = @{
-                  passed = 1
-                  failed = 0
-                  broken = 0
-                  skipped = 0
-                  unknown = 0
-                  total = 1
-                }
-              }
-            )
-          } | ConvertTo-Json -Depth 10
-          
-          Set-Content -Path "allure-report/widgets/suites.json" -Value $suitesWidget
-          
-          # Verify environment.properties in the generated report
-          if (Test-Path "allure-report/data/environment.xml") {
-            Write-Host "environment.xml file exists in allure-report/data directory"
-            Get-Content "allure-report/data/environment.xml"
-          } else {
-            Write-Host "WARNING: environment.xml file not found in allure-report/data directory"
+          # Update app.js to fix title
+          if (Test-Path "allure-report/app.js") {
+            Write-Host "Updating app.js to fix title"
+            (Get-Content "allure-report/app.js") -replace 'reportName\+".*unknown.*"', 'reportName+""' | Set-Content "allure-report/app.js"
           }
+          
+          # Print report structure for debugging
+          Write-Host "Allure report structure:"
+          Get-ChildItem -Path "allure-report" -Recurse -Directory | Select-Object -First 10 | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "Sample files:"
+          Get-ChildItem -Path "allure-report" -Recurse -File | Select-Object -First 10 | ForEach-Object { Write-Host $_.FullName }
       
       - name: Upload Allure Report as Artifact
         uses: actions/upload-artifact@v4
