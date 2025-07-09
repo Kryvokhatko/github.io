@@ -3,10 +3,12 @@ using CSTestFramework.Core.Reporting;
 using CSTestFramework.UI.PageObjects;
 using Allure.NUnit.Attributes;
 using Allure.Net.Commons;
+using Allure.NUnit;
 
 namespace CSTestFramework.UI.Tests
 {
     [TestFixture]
+    [AllureNUnit]
     [AllureSuite("E-Commerce Tests")]
     [AllureFeature("Order Placement")]
     public class LitecartTests : UiTestBase
