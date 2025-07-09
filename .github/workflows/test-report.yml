@@ -622,6 +622,11 @@ jobs:
           $testResultFiles = Get-ChildItem -Path "allure-results" -Filter "*-result.json" -File -ErrorAction SilentlyContinue
           Write-Host "Found $($testResultFiles.Count) test result files"
           
+          # Create allure-report directory if it doesn't exist
+          if (-not (Test-Path "allure-report")) {
+            New-Item -ItemType Directory -Path "allure-report" -Force
+          }
+          
           # Generate the report
           allure generate allure-results --clean -o allure-report
           
@@ -719,6 +724,21 @@ jobs:
         with:
           name: allure-report
           path: allure-report
+
+      # Setup Java for Allure
+      - name: Setup Java for Allure
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      # Setup Allure CommandLine
+      - name: Setup Allure CommandLine
+        run: |
+          wget https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.tgz
+          tar -zxvf allure-2.24.0.tgz
+          export PATH=$PATH:$(pwd)/allure-2.24.0/bin
+          echo "$(pwd)/allure-2.24.0/bin" >> $GITHUB_PATH
 
       # Try to download history from the gh-pages branch if it exists
       - name: Try to get history from gh-pages branch
