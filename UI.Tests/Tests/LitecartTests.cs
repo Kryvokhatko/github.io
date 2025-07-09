@@ -71,5 +71,36 @@ namespace CSTestFramework.UI.Tests
                 Assert.That(orderConfirmationPage.GetOrderConfirmationTitle().Contains("was completed successfully!"));            
             });
         }
+
+        [Test]
+        [AllureStory("Story: Successful Order")]
+        [AllureName("Empty UI Test Success")]
+        [AllureSeverity(Allure.Net.Commons.SeverityLevel.blocker)]
+        [AllureTag("Smoke", "E2E")]
+        [AllureOwner("QA Team")]
+        [Description("Automates the process of anything.")]
+        public void EmptyPositiveUITest()
+        {
+            AllureStepHelper.ExecuteStep("Verify that 1 = 1", () =>
+            {
+                Assert.That(1 == 1);
+            });
+        }
+
+        [Test]
+        [AllureStory("Story: Negative Order")]
+        [AllureName("Empty UI Test Negative")]
+        [AllureSeverity(Allure.Net.Commons.SeverityLevel.blocker)]
+        [AllureTag("Smoke", "E2E")]
+        [AllureOwner("QA Team")]
+        [Description("Automates the process of anything.")]
+        public void EmptyNegativeUITest()
+        {
+            AllureStepHelper.ExecuteStep("Verify that 1 = 2", () =>
+            {
+                Assert.That(1 == 2);
+            });
+        }
+
     }
 } 
