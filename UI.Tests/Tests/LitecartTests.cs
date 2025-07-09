@@ -9,13 +9,13 @@ namespace CSTestFramework.UI.Tests
 {
     [TestFixture]
     [AllureNUnit] //Class atribute for Allure reports
-    [AllureSuite("Positive e-2-e tests")]
+    [AllureSuite("Suite: Positive e-2-e tests")]
     [AllureFeature("Feature: Order Placement")]
     [AllureEpic("Epic: Web site to sell ducks")]
     public class LitecartTests : UiTestBase
     {
         [Test]
-        [AllureStory("Successful Order")]
+        [AllureStory("Story: Successful Order")]
         [AllureName("PlaceOrderForRedDuck_Success")]
         [AllureSeverity(Allure.Net.Commons.SeverityLevel.normal)]
         [AllureTag("Smoke", "E2E")]

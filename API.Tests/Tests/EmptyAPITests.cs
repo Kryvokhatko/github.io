@@ -12,13 +12,13 @@ namespace API.Tests.Tests
 {
     [TestFixture]
     [AllureNUnit]
-    [AllureSuite("Empty API Tests")]
+    [AllureSuite("Suite: Empty API Tests")]
     [AllureFeature("Feature: API for presentation purposes only")]
     [AllureEpic("Epic: empty API tests")]
     public class EmptyAPITests : ApiTestBase
     {
         [Test]
-        [AllureStory("Successful Order")]
+        [AllureStory("Story: Successful Order")]
         [AllureSeverity(Allure.Net.Commons.SeverityLevel.normal)]
         [AllureTag("Smoke", "API")]
         [AllureOwner("QA Team")]
