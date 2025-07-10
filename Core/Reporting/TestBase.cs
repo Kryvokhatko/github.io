@@ -135,6 +135,7 @@ namespace CSTestFramework.Core.Reporting
                 TestStopwatch?.Stop();
                 var testName = TestContext.CurrentContext.Test.Name;
                 var testResult = TestContext.CurrentContext.Result.Outcome.Status.ToString();
+                var isFailed = testResult.Equals("Failed", StringComparison.OrdinalIgnoreCase);
 
                 // Take automatic screenshot based on configuration
                 var screenshotPath = ScreenshotService?.TakeScreenshotIfNeeded(testName, testResult);
@@ -143,6 +144,69 @@ namespace CSTestFramework.Core.Reporting
                 {
                     Logger.Debug("Automatic screenshot taken: {ScreenshotPath}, Test: {TestName}, Result: {Result}", 
                         screenshotPath, testName, testResult);
+                    
+                    // Attach screenshot to the Test Body area in Allure report
+                    if (isFailed)
+                    {
+                        try
+                        {
+                            var screenshotBytes = System.IO.File.ReadAllBytes(screenshotPath);
+                            var fileExtension = System.IO.Path.GetExtension(screenshotPath).TrimStart('.');
+                            var isContextScreenshot = fileExtension.Equals("json", StringComparison.OrdinalIgnoreCase);
+                            
+                            string attachmentName;
+                            
+                            if (isContextScreenshot)
+                            {
+                                // Context screenshot for API tests
+                                attachmentName = $"Test_Failure_Context_{testName}";
+                                
+                                // For JSON context screenshots, also add a more readable version
+                                var jsonContent = System.IO.File.ReadAllText(screenshotPath);
+                                var jsonObj = JsonConvert.DeserializeObject(jsonContent);
+                                var prettyJson = JsonConvert.SerializeObject(jsonObj, Formatting.Indented);
+                                AllureAttachmentHelper.AddTextAttachment(prettyJson, "Test Failure Context");
+                            }
+                            else
+                            {
+                                // Browser screenshot for UI tests
+                                attachmentName = $"Test_Failure_Screenshot_{testName}";
+                            }
+                            
+                            // Add the screenshot directly to the test body
+                            AllureAttachmentHelper.AddScreenshot(screenshotBytes, attachmentName);
+                            
+                            Logger.Debug("Screenshot attached to Test Body in Allure report: {Name}", attachmentName);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug(ex, "Failed to attach screenshot to Test Body in Allure report");
+                        }
+                    }
+                }
+
+                // Add test failure details to Allure report if test failed
+                if (isFailed)
+                {
+                    try
+                    {
+                        var failureMessage = TestContext.CurrentContext.Result.Message;
+                        var stackTrace = TestContext.CurrentContext.Result.StackTrace;
+                        
+                        if (!string.IsNullOrEmpty(failureMessage))
+                        {
+                            AllureAttachmentHelper.AddTextAttachment(failureMessage, "Failure Message");
+                        }
+                        
+                        if (!string.IsNullOrEmpty(stackTrace))
+                        {
+                            AllureAttachmentHelper.AddTextAttachment(stackTrace, "Stack Trace");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug(ex, "Failed to attach failure details to Allure report");
+                    }
                 }
 
                 Logger.Debug("Test teardown completed: {TestName}, Result: {Result}, Duration: {Duration}ms", 

@@ -105,6 +105,29 @@ namespace CSTestFramework.Core.Reporting
         }
 
         /// <summary>
+        /// Adds text content as an attachment to the current test.
+        /// </summary>
+        /// <param name="textContent">The text content.</param>
+        /// <param name="name">The attachment name.</param>
+        /// <param name="extension">The file extension (default: txt).</param>
+        public static void AddTextAttachment(string textContent, string name, string extension = "txt")
+        {
+            try
+            {
+                var textBytes = Encoding.UTF8.GetBytes(textContent);
+                var mimeType = "text/plain";
+                
+                AllureTestContext.Current.AddAttachment(name, textBytes, mimeType, extension);
+                _logger.Debug("Text content added to Allure report: {Name}, Size: {Size} characters", 
+                    name, textContent?.Length ?? 0);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Failed to add text content to Allure report: {Name}", name);
+            }
+        }
+
+        /// <summary>
         /// Adds log content as an attachment to the current test.
         /// </summary>
         /// <param name="logContent">The log content.</param>
