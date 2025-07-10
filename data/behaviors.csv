@@ -1,0 +1,4 @@
+"Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
+"Epic: empty API tests","Feature: API for presentation purposes only","Story: Successful Order","0","0","1","0","0"
+"Epic: Web site to sell ducks","Feature: Order Placement","Story: Successful Order","0","0","2","0","0"
+"Epic: Web site to sell ducks","Feature: Order Placement","Story: Negative Order","1","0","0","0","0"

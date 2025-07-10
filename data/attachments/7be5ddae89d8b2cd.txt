@@ -1,0 +1,22 @@
+2025-07-10 12:12:10.010 +00:00 [DBG] Test context set: EmptyTest, Category: General, Severity: Normal
+2025-07-10 12:12:10.010 +00:00 [DBG] Test setup completed: EmptyTest
+2025-07-10 12:12:10.339 +00:00 [DBG] Step added: Step 1: Initialize API Client
+2025-07-10 12:12:10.339 +00:00 [DBG] Starting step: Step 1: Initialize API Client
+2025-07-10 12:12:10.339 +00:00 [DBG] API client initialized
+2025-07-10 12:12:10.339 +00:00 [DBG] Step completed: Step 1: Initialize API Client, Status: Passed, Duration: 0ms
+2025-07-10 12:12:10.339 +00:00 [DBG] Step completed successfully: Step 1: Initialize API Client, Duration: 0ms
+2025-07-10 12:12:10.339 +00:00 [DBG] Step added: Step 2: Make API Call
+2025-07-10 12:12:10.339 +00:00 [DBG] Starting step: Step 2: Make API Call
+2025-07-10 12:12:10.339 +00:00 [DBG] API call completed successfully
+2025-07-10 12:12:10.339 +00:00 [DBG] Step completed: Step 2: Make API Call, Status: Passed, Duration: 0ms
+2025-07-10 12:12:10.339 +00:00 [DBG] Step completed successfully: Step 2: Make API Call, Duration: 0ms
+2025-07-10 12:12:10.339 +00:00 [DBG] Step added: Step 3: Verify Response
+2025-07-10 12:12:10.339 +00:00 [DBG] Starting step: Step 3: Verify Response
+2025-07-10 12:12:10.339 +00:00 [DBG] Step completed: Step 3: Verify Response, Status: Failed, Duration: 0ms
+2025-07-10 12:12:10.339 +00:00 [DBG] Step failed: Step 3: Verify Response, Duration: 0ms
+NUnit.Framework.SuccessException: API test completed successfully
+   at NUnit.Framework.Assert.Pass(String message)
+   at CSTestFramework.Core.Reporting.AllureStepHelper.ExecuteStep(String stepName, Action action, String stepDescription) in D:\a\github.io\github.io\Core\Reporting\AllureStepHelper.cs:line 31
+2025-07-10 12:12:10.401 +00:00 [DBG] Screenshot not needed for test: EmptyTest, Result: Passed, Mode: OnFailureOnly
+2025-07-10 12:12:10.401 +00:00 [DBG] Test teardown completed: EmptyTest, Result: Passed, Duration: 386ms
+2025-07-10 12:12:10.401 +00:00 [DBG] Test context cleared

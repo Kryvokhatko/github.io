@@ -1,0 +1,62 @@
+2025-07-10 12:12:29.204 +00:00 [DBG] Creating WebDriver for browser: Chrome
+2025-07-10 12:12:29.204 +00:00 [DBG] Using WebDriverManager for local Chrome setup
+2025-07-10 12:12:30.622 +00:00 [DBG] WebDriver configured with ImplicitWait: 10s, PageLoad: 30s, Window: 0x0
+2025-07-10 12:12:30.623 +00:00 [DBG] WebDriver created successfully for Chrome
+2025-07-10 12:12:30.624 +00:00 [DBG] Environment info written to: D:\a\github.io\github.io\UI.Tests\bin\Release\allure-results\environment.properties
+2025-07-10 12:12:30.624 +00:00 [DBG] Step added: Browser/Environment Setup
+2025-07-10 12:12:30.624 +00:00 [DBG] Starting step: Browser/Environment Setup
+2025-07-10 12:12:30.624 +00:00 [DBG] WebDriver initialized: Chrome null on Microsoft Windows NT 10.0.20348.0
+2025-07-10 12:12:30.624 +00:00 [DBG] Attachment added: Environment Info, Type: application/json, Size: 213 bytes
+2025-07-10 12:12:30.624 +00:00 [DBG] JSON data added to Allure report: Environment Info, Size: 213 bytes
+2025-07-10 12:12:30.624 +00:00 [DBG] Step completed: Browser/Environment Setup, Status: Passed, Duration: 0ms
+2025-07-10 12:12:30.624 +00:00 [DBG] Step completed successfully: Browser/Environment Setup, Duration: 0ms
+2025-07-10 12:12:30.624 +00:00 [DBG] Test context set: PlaceOrderForRedDuck_Success, Category: General, Severity: Normal
+2025-07-10 12:12:30.624 +00:00 [DBG] Test setup completed: PlaceOrderForRedDuck_Success
+2025-07-10 12:12:30.626 +00:00 [DBG] Step added: Navigate to Home Page
+2025-07-10 12:12:30.626 +00:00 [DBG] Starting step: Navigate to Home Page
+2025-07-10 12:12:32.124 +00:00 [DBG] Step completed: Navigate to Home Page, Status: Passed, Duration: 1497.2306ms
+2025-07-10 12:12:32.124 +00:00 [DBG] Step completed successfully: Navigate to Home Page, Duration: 1497ms
+2025-07-10 12:12:32.124 +00:00 [DBG] Step added: Make Sign In and accept Change Password and cookies alerts 
+2025-07-10 12:12:32.124 +00:00 [DBG] Starting step: Make Sign In and accept Change Password and cookies alerts 
+2025-07-10 12:12:32.124 +00:00 [DBG] Clicking the Sign In dropdown.
+2025-07-10 12:12:32.196 +00:00 [DBG] Clicking Sign In button in dropdown.
+2025-07-10 12:12:34.841 +00:00 [DBG] Change Password alert was not present within the timeout period.
+2025-07-10 12:12:34.873 +00:00 [DBG] Accepting cookies.
+2025-07-10 12:12:34.919 +00:00 [DBG] Step completed: Make Sign In and accept Change Password and cookies alerts , Status: Passed, Duration: 2795.2691ms
+2025-07-10 12:12:34.919 +00:00 [DBG] Step completed successfully: Make Sign In and accept Change Password and cookies alerts , Duration: 2795ms
+2025-07-10 12:12:34.920 +00:00 [DBG] Step added: Navigate to Red Duck product item page
+2025-07-10 12:12:34.920 +00:00 [DBG] Starting step: Navigate to Red Duck product item page
+2025-07-10 12:12:34.920 +00:00 [DBG] Clicking Categories dropdown.
+2025-07-10 12:12:34.978 +00:00 [DBG] Clicking Rubber Ducks link.
+2025-07-10 12:12:35.422 +00:00 [DBG] Step completed: Navigate to Red Duck product item page, Status: Passed, Duration: 502.1932ms
+2025-07-10 12:12:35.422 +00:00 [DBG] Step completed successfully: Navigate to Red Duck product item page, Duration: 502ms
+2025-07-10 12:12:35.422 +00:00 [DBG] Step added: Select Red Duck
+2025-07-10 12:12:35.422 +00:00 [DBG] Starting step: Select Red Duck
+2025-07-10 12:12:35.427 +00:00 [DBG] Clicking Red Duck product.
+2025-07-10 12:12:35.896 +00:00 [DBG] Step completed: Select Red Duck, Status: Passed, Duration: 473.8428ms
+2025-07-10 12:12:35.896 +00:00 [DBG] Step completed successfully: Select Red Duck, Duration: 473ms
+2025-07-10 12:12:35.896 +00:00 [DBG] Step added: Add product items to cart
+2025-07-10 12:12:35.896 +00:00 [DBG] Starting step: Add product items to cart
+2025-07-10 12:12:35.897 +00:00 [DBG] Setting quantity to 2.
+2025-07-10 12:12:35.995 +00:00 [DBG] Clicking Add To Cart.
+2025-07-10 12:12:36.056 +00:00 [DBG] Step completed: Add product items to cart, Status: Passed, Duration: 159.0275ms
+2025-07-10 12:12:36.056 +00:00 [DBG] Step completed successfully: Add product items to cart, Duration: 159ms
+2025-07-10 12:12:36.056 +00:00 [DBG] Step added: Navigate to Cart
+2025-07-10 12:12:36.056 +00:00 [DBG] Starting step: Navigate to Cart
+2025-07-10 12:12:37.108 +00:00 [DBG] Navigating to Cart.
+2025-07-10 12:12:37.581 +00:00 [DBG] Step completed: Navigate to Cart, Status: Passed, Duration: 1525.0424ms
+2025-07-10 12:12:37.581 +00:00 [DBG] Step completed successfully: Navigate to Cart, Duration: 1524ms
+2025-07-10 12:12:37.581 +00:00 [DBG] Step added: Confirm Order
+2025-07-10 12:12:37.581 +00:00 [DBG] Starting step: Confirm Order
+2025-07-10 12:12:37.581 +00:00 [DBG] Accepting privacy policy.
+2025-07-10 12:12:38.479 +00:00 [DBG] Confirming order.
+2025-07-10 12:12:38.544 +00:00 [DBG] Step completed: Confirm Order, Status: Passed, Duration: 963.8338ms
+2025-07-10 12:12:38.544 +00:00 [DBG] Step completed successfully: Confirm Order, Duration: 964ms
+2025-07-10 12:12:38.544 +00:00 [DBG] Step added: Verify Order Confirmation
+2025-07-10 12:12:38.544 +00:00 [DBG] Starting step: Verify Order Confirmation
+2025-07-10 12:12:39.199 +00:00 [DBG] Order confirmation title: Your order #2 was completed successfully!
+2025-07-10 12:12:39.199 +00:00 [DBG] Step completed: Verify Order Confirmation, Status: Passed, Duration: 654.9475ms
+2025-07-10 12:12:39.199 +00:00 [DBG] Step completed successfully: Verify Order Confirmation, Duration: 655ms
+2025-07-10 12:12:39.200 +00:00 [DBG] Screenshot not needed for test: PlaceOrderForRedDuck_Success, Result: Passed, Mode: OnFailureOnly
+2025-07-10 12:12:39.200 +00:00 [DBG] Test teardown completed: PlaceOrderForRedDuck_Success, Result: Passed, Duration: 8575ms
+2025-07-10 12:12:39.200 +00:00 [DBG] Test context cleared

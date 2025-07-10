@@ -1,0 +1,21 @@
+2025-07-10 12:12:27.554 +00:00 [DBG] Creating WebDriver for browser: Chrome
+2025-07-10 12:12:27.554 +00:00 [DBG] Using WebDriverManager for local Chrome setup
+2025-07-10 12:12:29.055 +00:00 [DBG] WebDriver configured with ImplicitWait: 10s, PageLoad: 30s, Window: 0x0
+2025-07-10 12:12:29.055 +00:00 [DBG] WebDriver created successfully for Chrome
+2025-07-10 12:12:29.055 +00:00 [DBG] Environment info written to: D:\a\github.io\github.io\UI.Tests\bin\Release\allure-results\environment.properties
+2025-07-10 12:12:29.055 +00:00 [DBG] Step added: Browser/Environment Setup
+2025-07-10 12:12:29.055 +00:00 [DBG] Starting step: Browser/Environment Setup
+2025-07-10 12:12:29.055 +00:00 [DBG] WebDriver initialized: Chrome null on Microsoft Windows NT 10.0.20348.0
+2025-07-10 12:12:29.055 +00:00 [DBG] Attachment added: Environment Info, Type: application/json, Size: 213 bytes
+2025-07-10 12:12:29.055 +00:00 [DBG] JSON data added to Allure report: Environment Info, Size: 213 bytes
+2025-07-10 12:12:29.055 +00:00 [DBG] Step completed: Browser/Environment Setup, Status: Passed, Duration: 0ms
+2025-07-10 12:12:29.055 +00:00 [DBG] Step completed successfully: Browser/Environment Setup, Duration: 0ms
+2025-07-10 12:12:29.055 +00:00 [DBG] Test context set: EmptyPositiveUITest, Category: General, Severity: Normal
+2025-07-10 12:12:29.055 +00:00 [DBG] Test setup completed: EmptyPositiveUITest
+2025-07-10 12:12:29.056 +00:00 [DBG] Step added: Verify that 1 = 1
+2025-07-10 12:12:29.056 +00:00 [DBG] Starting step: Verify that 1 = 1
+2025-07-10 12:12:29.056 +00:00 [DBG] Step completed: Verify that 1 = 1, Status: Passed, Duration: 0ms
+2025-07-10 12:12:29.056 +00:00 [DBG] Step completed successfully: Verify that 1 = 1, Duration: 0ms
+2025-07-10 12:12:29.056 +00:00 [DBG] Screenshot not needed for test: EmptyPositiveUITest, Result: Passed, Mode: OnFailureOnly
+2025-07-10 12:12:29.056 +00:00 [DBG] Test teardown completed: EmptyPositiveUITest, Result: Passed, Duration: 0ms
+2025-07-10 12:12:29.056 +00:00 [DBG] Test context cleared

@@ -1,0 +1,40 @@
+2025-07-10 12:12:18.327 +00:00 [DBG] Creating WebDriver for browser: Chrome
+2025-07-10 12:12:18.327 +00:00 [DBG] Using WebDriverManager for local Chrome setup
+2025-07-10 12:12:27.325 +00:00 [DBG] WebDriver configured with ImplicitWait: 10s, PageLoad: 30s, Window: 0x0
+2025-07-10 12:12:27.325 +00:00 [DBG] WebDriver created successfully for Chrome
+2025-07-10 12:12:27.326 +00:00 [DBG] Environment info written to: D:\a\github.io\github.io\UI.Tests\bin\Release\allure-results\environment.properties
+2025-07-10 12:12:27.327 +00:00 [DBG] Step added: Browser/Environment Setup
+2025-07-10 12:12:27.327 +00:00 [DBG] Starting step: Browser/Environment Setup
+2025-07-10 12:12:27.327 +00:00 [DBG] WebDriver initialized: Chrome null on Microsoft Windows NT 10.0.20348.0
+2025-07-10 12:12:27.335 +00:00 [DBG] Attachment added: Environment Info, Type: application/json, Size: 213 bytes
+2025-07-10 12:12:27.335 +00:00 [DBG] JSON data added to Allure report: Environment Info, Size: 213 bytes
+2025-07-10 12:12:27.336 +00:00 [DBG] Step completed: Browser/Environment Setup, Status: Passed, Duration: 8.4761ms
+2025-07-10 12:12:27.336 +00:00 [DBG] Step completed successfully: Browser/Environment Setup, Duration: 8ms
+2025-07-10 12:12:27.338 +00:00 [DBG] Test context set: EmptyNegativeUITest, Category: General, Severity: Normal
+2025-07-10 12:12:27.338 +00:00 [DBG] Test setup completed: EmptyNegativeUITest
+2025-07-10 12:12:27.339 +00:00 [DBG] Step added: Verify that 1 = 2
+2025-07-10 12:12:27.339 +00:00 [DBG] Starting step: Verify that 1 = 2
+2025-07-10 12:12:27.410 +00:00 [DBG] Step completed: Verify that 1 = 2, Status: Failed, Duration: 70.6879ms
+2025-07-10 12:12:27.410 +00:00 [DBG] Step failed: Verify that 1 = 2, Duration: 69ms
+NUnit.Framework.AssertionException:   Assert.That(1 == 2, Is.True)
+  Expected: True
+  But was:  False
+
+   at NUnit.Framework.Assert.ReportFailure(String message)
+   at NUnit.Framework.Assert.That[TActual](TActual actual, IResolveConstraint expression, NUnitString message, String actualExpression, String constraintExpression)
+   at NUnit.Framework.Assert.That(Boolean condition, NUnitString message, String actualExpression)
+   at CSTestFramework.UI.Tests.LitecartTests.<>c.<EmptyNegativeUITest>b__2_0() in D:\a\github.io\github.io\UI.Tests\Tests\LitecartTests.cs:line 102
+   at CSTestFramework.Core.Reporting.AllureStepHelper.ExecuteStep(String stepName, Action action, String stepDescription) in D:\a\github.io\github.io\Core\Reporting\AllureStepHelper.cs:line 31
+2025-07-10 12:12:27.450 +00:00 [DBG] Browser screenshot saved: screenshots\EmptyNegativeUITest_Failed_20250710_121227.png, Size: 3117 bytes, Test: EmptyNegativeUITest
+2025-07-10 12:12:27.451 +00:00 [DBG] Attachment added: Screenshot_Failed_EmptyNegativeUITest, Type: image/png, Size: 3117 bytes
+2025-07-10 12:12:27.451 +00:00 [DBG] Screenshot added to Allure report: Screenshot_Failed_EmptyNegativeUITest, Test: EmptyNegativeUITest
+2025-07-10 12:12:27.451 +00:00 [DBG] Automatic screenshot taken: screenshots\EmptyNegativeUITest_Failed_20250710_121227.png, Test: EmptyNegativeUITest, Result: Failed
+2025-07-10 12:12:27.451 +00:00 [DBG] Attachment added: Test_Failure_Screenshot_EmptyNegativeUITest, Type: image/png, Size: 3117 bytes
+2025-07-10 12:12:27.451 +00:00 [DBG] Screenshot added to Allure report: Test_Failure_Screenshot_EmptyNegativeUITest, Size: 3117 bytes
+2025-07-10 12:12:27.451 +00:00 [DBG] Screenshot attached to Test Body in Allure report: Test_Failure_Screenshot_EmptyNegativeUITest
+2025-07-10 12:12:27.452 +00:00 [DBG] Attachment added: Failure Message, Type: text/plain, Size: 69 bytes
+2025-07-10 12:12:27.452 +00:00 [DBG] Text content added to Allure report: Failure Message, Size: 69 characters
+2025-07-10 12:12:27.452 +00:00 [DBG] Attachment added: Stack Trace, Type: text/plain, Size: 343 bytes
+2025-07-10 12:12:27.452 +00:00 [DBG] Text content added to Allure report: Stack Trace, Size: 343 characters
+2025-07-10 12:12:27.452 +00:00 [DBG] Test teardown completed: EmptyNegativeUITest, Result: Failed, Duration: 76ms
+2025-07-10 12:12:27.452 +00:00 [DBG] Test context cleared

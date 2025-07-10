@@ -1,0 +1,1 @@
+{"total":2,"items":[{"uid":"7901554bdedc9d493cf75ea16e091e6c","name":"Suite: Positive e-2-e tests","statistic":{"failed":1,"broken":0,"skipped":0,"passed":2,"unknown":0,"total":3}},{"uid":"a86638042dc12699994f23542857c58b","name":"Suite: Empty API Tests","statistic":{"failed":0,"broken":0,"skipped":0,"passed":1,"unknown":0,"total":1}}]}
